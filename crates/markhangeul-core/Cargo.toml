@@ -1,0 +1,12 @@
+[package]
+name = "markhangeul-core"
+version = "0.1.0"
+description = "Core parser and AST model for MarkHangeul."
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+unicode-segmentation.workspace = true
