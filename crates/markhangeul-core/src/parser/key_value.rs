@@ -80,6 +80,11 @@ pub fn parse_key_value_annotation(
             base_index + separator_index + 1,
             raw_value.len(),
         ),
+        "tone_system" => attributes.tone_system = Some(value.to_string()),
+        "tone_contour" => attributes.tone_contour = Some(value.to_string()),
+        "sound_shape" => attributes.sound_shape = Some(parse_bool(value)),
+        "hide_sound_shape" => attributes.sound_shape = Some(!parse_bool(value)),
+        "guide_color" => attributes.guide_color = Some(parse_bool(value)),
         "ipa" => attributes.ipa = Some(value.to_string()),
         "phoneme" => attributes.phoneme = Some(value.to_string()),
         "lang" => attributes.lang = Some(value.to_string()),
@@ -126,8 +131,19 @@ fn assign_or_error<T>(
 }
 
 fn normalize_key(key: &str) -> String {
-    match key.trim().replace('-', "_").as_str() {
+    match key.trim().to_ascii_lowercase().replace('-', "_").as_str() {
         "syllablerole" => "syllable_role".to_string(),
+        "tonesystem" => "tone_system".to_string(),
+        "tonecontour" => "tone_contour".to_string(),
+        "soundshape" | "guide" | "showguide" | "shapeguide" | "contourguide" => {
+            "sound_shape".to_string()
+        }
+        "hidesoundshape" | "hide_soundshape" | "hide_sound_shape" | "hideshape" | "hide_shape"
+        | "hideguide" | "hide_guide" | "noguide" | "no_guide" | "hidecontourguide"
+        | "hide_contour_guide" => "hide_sound_shape".to_string(),
+        "guidecolor" | "guide_color" | "showcolor" | "show_color" | "durationcolor"
+        | "duration_color" | "lengthcolor" | "length_color" | "colorguide" | "color_guide"
+        | "visualcolor" | "visual_color" => "guide_color".to_string(),
         normalized => normalized.to_string(),
     }
 }
@@ -145,10 +161,19 @@ fn parse_pitch(value: &str) -> Option<Pitch> {
 
 fn parse_duration(value: &str) -> Option<Duration> {
     match value {
-        "short" | "brief" => Some(Duration::Short),
+        "extra-short" | "extra_short" | "extrashort" | "very-short" | "very_short"
+        | "veryshort" | "ultra-short" | "ultra_short" | "xs" | "아주짧게" => {
+            Some(Duration::ExtraShort)
+        }
+        "short" | "brief" | "s" | "보통짧게" => Some(Duration::Short),
+        "slight-short" | "slight_short" | "slightshort" | "semi-short" | "semishort"
+        | "little-short" | "littleshort" | "조금짧게" => Some(Duration::SlightShort),
         "normal" | "mid" => Some(Duration::Normal),
-        "long" => Some(Duration::Long),
-        "extra-long" | "extra_long" | "extralong" | "verylong" => Some(Duration::ExtraLong),
+        "slight-long" | "slight_long" | "slightlong" | "semi-long" | "semilong" | "little-long"
+        | "littlelong" | "조금길게" => Some(Duration::SlightLong),
+        "long" | "l" | "보통길게" => Some(Duration::Long),
+        "extra-long" | "extra_long" | "extralong" | "very-long" | "very_long" | "verylong"
+        | "ultra-long" | "ultra_long" | "xl" | "아주길게" => Some(Duration::ExtraLong),
         _ => None,
     }
 }
@@ -174,13 +199,28 @@ fn parse_volume(value: &str) -> Option<Volume> {
 
 fn parse_tone(value: &str) -> Option<Tone> {
     match value {
-        "0" | "t0" | "neutral" | "none" => Some(Tone::Neutral),
-        "1" | "t1" => Some(Tone::One),
-        "2" | "t2" => Some(Tone::Two),
-        "3" | "t3" => Some(Tone::Three),
-        "4" | "t4" => Some(Tone::Four),
+        "0" | "t0" | "neutral" | "none" => Some(Tone::neutral()),
+        _ if value
+            .strip_prefix('t')
+            .is_some_and(|digits| parse_tone_number(digits).is_some()) =>
+        {
+            Some(Tone::new(value.trim_start_matches('t').to_string()))
+        }
+        _ if parse_tone_number(value).is_some() => Some(Tone::new(value.to_string())),
+        _ if is_named_tone(value) => Some(Tone::new(value.to_string())),
         _ => None,
     }
+}
+
+fn parse_tone_number(value: &str) -> Option<u8> {
+    let parsed = value.parse::<u8>().ok()?;
+    (1..=9).contains(&parsed).then_some(parsed)
+}
+
+fn is_named_tone(value: &str) -> bool {
+    value
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ':'))
 }
 
 fn parse_bool(value: &str) -> bool {

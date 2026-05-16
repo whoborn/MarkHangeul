@@ -15,7 +15,7 @@ pub fn render_classes(attributes: &MarkHangeulAttributes) -> RenderClasses {
         duration: attributes.duration.map(duration_class),
         stress: attributes.stress.map(stress_class),
         volume: attributes.volume.map(volume_class),
-        tone: attributes.tone.map(tone_class),
+        tone: attributes.tone.as_ref().map(tone_class),
     }
 }
 
@@ -31,8 +31,11 @@ fn pitch_class(value: Pitch) -> &'static str {
 
 fn duration_class(value: Duration) -> &'static str {
     match value {
+        Duration::ExtraShort => "mh-duration-extra-short",
         Duration::Short => "mh-duration-short",
+        Duration::SlightShort => "mh-duration-slight-short",
         Duration::Normal => "mh-duration-normal",
+        Duration::SlightLong => "mh-duration-slight-long",
         Duration::Long => "mh-duration-long",
         Duration::ExtraLong => "mh-duration-extra-long",
     }
@@ -55,12 +58,10 @@ fn volume_class(value: Volume) -> &'static str {
     }
 }
 
-fn tone_class(value: Tone) -> &'static str {
-    match value {
-        Tone::One => "mh-tone-1",
-        Tone::Two => "mh-tone-2",
-        Tone::Three => "mh-tone-3",
-        Tone::Four => "mh-tone-4",
-        Tone::Neutral => "mh-tone-neutral",
+fn tone_class(value: &Tone) -> &'static str {
+    if value.as_str() == "neutral" {
+        "mh-tone-neutral"
+    } else {
+        "mh-tone"
     }
 }

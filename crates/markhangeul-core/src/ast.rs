@@ -76,6 +76,14 @@ pub struct MarkHangeulAttributes {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tone: Option<Tone>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub tone_system: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tone_contour: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sound_shape: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guide_color: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ipa: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phoneme: Option<String>,
@@ -132,8 +140,11 @@ pub enum Pitch {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Duration {
+    ExtraShort,
     Short,
+    SlightShort,
     Normal,
+    SlightLong,
     Long,
     ExtraLong,
 }
@@ -155,16 +166,20 @@ pub enum Volume {
     Loud,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Tone {
-    #[serde(rename = "1")]
-    One,
-    #[serde(rename = "2")]
-    Two,
-    #[serde(rename = "3")]
-    Three,
-    #[serde(rename = "4")]
-    Four,
-    #[serde(rename = "neutral")]
-    Neutral,
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Tone(pub String);
+
+impl Tone {
+    pub fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+
+    pub fn neutral() -> Self {
+        Self::new("neutral")
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }

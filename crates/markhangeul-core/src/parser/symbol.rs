@@ -18,48 +18,15 @@ pub fn parse_symbol_annotation(
             continue;
         }
 
-        if rest
-            .get(..2)
-            .is_some_and(|value| value.eq_ignore_ascii_case("T0"))
-        {
-            attributes.tone = Some(Tone::Neutral);
-            index += 2;
+        if let Some((tone, byte_len)) = parse_tone_symbol(rest) {
+            attributes.tone = Some(tone);
+            index += byte_len;
             continue;
         }
 
-        if rest
-            .get(..2)
-            .is_some_and(|value| value.eq_ignore_ascii_case("T1"))
-        {
-            attributes.tone = Some(Tone::One);
-            index += 2;
-            continue;
-        }
-
-        if rest
-            .get(..2)
-            .is_some_and(|value| value.eq_ignore_ascii_case("T2"))
-        {
-            attributes.tone = Some(Tone::Two);
-            index += 2;
-            continue;
-        }
-
-        if rest
-            .get(..2)
-            .is_some_and(|value| value.eq_ignore_ascii_case("T3"))
-        {
-            attributes.tone = Some(Tone::Three);
-            index += 2;
-            continue;
-        }
-
-        if rest
-            .get(..2)
-            .is_some_and(|value| value.eq_ignore_ascii_case("T4"))
-        {
-            attributes.tone = Some(Tone::Four);
-            index += 2;
+        if rest.starts_with("˘˘") {
+            attributes.duration = Some(Duration::ExtraShort);
+            index += "˘˘".len();
             continue;
         }
 
@@ -99,4 +66,36 @@ pub fn parse_symbol_annotation(
 
         index += current.len_utf8();
     }
+}
+
+fn parse_tone_symbol(rest: &str) -> Option<(Tone, usize)> {
+    let first = rest.chars().next()?;
+    if first != 'T' && first != 't' {
+        return None;
+    }
+
+    let mut byte_len = first.len_utf8();
+    let mut digits = String::new();
+
+    for ch in rest[byte_len..].chars() {
+        if ch.is_ascii_digit() {
+            digits.push(ch);
+            byte_len += ch.len_utf8();
+        } else {
+            break;
+        }
+    }
+
+    if digits.is_empty() {
+        return None;
+    }
+
+    if digits == "0" {
+        return Some((Tone::neutral(), byte_len));
+    }
+
+    let value = digits.parse::<u8>().ok()?;
+    (1..=9)
+        .contains(&value)
+        .then(|| (Tone::new(value.to_string()), byte_len))
 }

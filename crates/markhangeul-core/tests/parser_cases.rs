@@ -42,13 +42,34 @@ fn parses_symbol_annotation_for_latin_word() {
 
 #[test]
 fn parses_key_value_annotation() {
-    let nodes = mark_nodes("녕{pitch=rise,duration=long,stress=strong,lang=ko}");
+    let nodes = mark_nodes("녕{pitch=rise,duration=slight-long,stress=strong,lang=ko}");
     let node = &nodes[0];
 
     assert_eq!(node.attributes.pitch, Some(Pitch::Rise));
-    assert_eq!(node.attributes.duration, Some(Duration::Long));
+    assert_eq!(node.attributes.duration, Some(Duration::SlightLong));
     assert_eq!(node.attributes.stress, Some(Stress::Strong));
     assert_eq!(node.attributes.lang.as_deref(), Some("ko"));
+}
+
+#[test]
+fn parses_granular_duration_levels() {
+    let nodes = mark_nodes(
+        "a{duration=extra-short} b{duration=short} c{duration=slight-short} d{duration=normal} e{duration=slight-long} f{duration=long} g{duration=extra-long}",
+    );
+    let durations: Vec<_> = nodes.iter().map(|node| node.attributes.duration).collect();
+
+    assert_eq!(
+        durations,
+        vec![
+            Some(Duration::ExtraShort),
+            Some(Duration::Short),
+            Some(Duration::SlightShort),
+            Some(Duration::Normal),
+            Some(Duration::SlightLong),
+            Some(Duration::Long),
+            Some(Duration::ExtraLong),
+        ]
+    );
 }
 
 #[test]
@@ -68,17 +89,50 @@ fn parses_explicit_range_annotation() {
 #[test]
 fn parses_mandarin_tones() {
     let nodes = mark_nodes("妈{T1} 麻{T2} 马{T3} 骂{T4}");
-    let tones: Vec<_> = nodes.iter().map(|node| node.attributes.tone).collect();
+    let tones: Vec<_> = nodes
+        .iter()
+        .map(|node| node.attributes.tone.as_ref().map(Tone::as_str))
+        .collect();
+
+    assert_eq!(tones, vec![Some("1"), Some("2"), Some("3"), Some("4")]);
+}
+
+#[test]
+fn parses_generic_tone_systems_and_contours() {
+    let nodes = mark_nodes(
+        "粤{lang=yue,tone=6,toneContour=22,soundShape=true,guideColor=true} checked{tone=8} a{T8}",
+    );
 
     assert_eq!(
-        tones,
-        vec![
-            Some(Tone::One),
-            Some(Tone::Two),
-            Some(Tone::Three),
-            Some(Tone::Four)
-        ]
+        nodes[0].attributes.tone.as_ref().map(Tone::as_str),
+        Some("6")
     );
+    assert_eq!(nodes[0].attributes.lang.as_deref(), Some("yue"));
+    assert_eq!(nodes[0].attributes.tone_contour.as_deref(), Some("22"));
+    assert_eq!(nodes[0].attributes.sound_shape, Some(true));
+    assert_eq!(nodes[0].attributes.guide_color, Some(true));
+    assert_eq!(
+        nodes[1].attributes.tone.as_ref().map(Tone::as_str),
+        Some("8")
+    );
+    assert_eq!(
+        nodes[2].attributes.tone.as_ref().map(Tone::as_str),
+        Some("8")
+    );
+}
+
+#[test]
+fn keeps_show_color_as_guide_color_alias() {
+    let nodes = mark_nodes("아{duration=long,showColor=true}");
+
+    assert_eq!(nodes[0].attributes.guide_color, Some(true));
+}
+
+#[test]
+fn parses_sound_shape_hiding_aliases() {
+    let nodes = mark_nodes("마{T2,hideGuide=true}");
+
+    assert_eq!(nodes[0].attributes.sound_shape, Some(false));
 }
 
 #[test]
@@ -117,7 +171,7 @@ fn ignores_latex_math_braces() {
 
 #[test]
 fn reports_invalid_values_and_unknown_symbols() {
-    let document = parse_markhangeul("Hello{pitch=curve} 妈{T7}");
+    let document = parse_markhangeul("Hello{pitch=curve} 妈{tone=}");
     let codes: Vec<_> = document
         .errors
         .iter()
@@ -125,7 +179,7 @@ fn reports_invalid_values_and_unknown_symbols() {
         .collect();
 
     assert!(codes.contains(&"INVALID_VALUE"));
-    assert!(codes.contains(&"UNKNOWN_SYMBOL"));
+    assert!(codes.contains(&"MALFORMED_PAIR"));
 }
 
 #[test]
