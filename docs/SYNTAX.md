@@ -140,3 +140,33 @@ pub enum Scope {
 - `tone`: 성조별 수직 움직임과 보조 곡선
 
 마크한글 렌더러는 발음 표식 badge를 붙이는 UI가 아니라 대상 텍스트 자체의 조형을 변화시키는 방식을 기본으로 합니다.
+
+## Markdown/LaTeX Preview
+
+웹 Playground preview는 MarkHangeul annotation을 먼저 inline HTML로 치환한 뒤 Markdown 렌더러에 통과시킵니다.
+
+지원 범위:
+
+- CommonMark 기본 문법
+- GitHub Flavored Markdown 계열 기능: table, task list, strikethrough 등
+- heading attribute, footnote, definition list, superscript, subscript
+- inline math `$...$`
+- display math `$$...$$`
+
+예:
+
+```md
+## Markdown + MarkHangeul
+
+**안녕{↗—!}하세요**
+
+| 표현 | 수식 |
+| --- | --- |
+| Hello{!↗} | $E = mc^2$ |
+
+$$
+\int_0^1 x^2 dx = \frac{1}{3}
+$$
+```
+
+주의: 명시 범위 `((...)){...}` 안의 텍스트는 하나의 MarkHangeul 대상이므로, 범위 내부 Markdown 문법은 일반 Markdown으로 다시 파싱하지 않고 대상 텍스트로 취급합니다.

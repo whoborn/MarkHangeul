@@ -91,6 +91,31 @@ fn preserves_plain_markdown() {
 }
 
 #[test]
+fn ignores_annotations_inside_markdown_code() {
+    let source = "`녕{↗}`\n\n```md\nHello{!↗}\n```";
+    let document = parse_markhangeul(source);
+
+    assert_eq!(document.errors.len(), 0);
+    assert_eq!(mark_nodes(source).len(), 0);
+    assert_eq!(export_plain_markdown(&document), source);
+}
+
+#[test]
+fn ignores_latex_math_braces() {
+    let source = "수식: $\\frac{1}{2}$\n\n$$\\int_0^1 x^2 dx = \\frac{1}{3}$$\n\n안녕{↗}";
+    let document = parse_markhangeul(source);
+    let nodes = mark_nodes(source);
+
+    assert_eq!(document.errors.len(), 0);
+    assert_eq!(nodes.len(), 1);
+    assert_eq!(nodes[0].text, "녕");
+    assert_eq!(
+        export_plain_markdown(&document),
+        "수식: $\\frac{1}{2}$\n\n$$\\int_0^1 x^2 dx = \\frac{1}{3}$$\n\n안녕"
+    );
+}
+
+#[test]
 fn reports_invalid_values_and_unknown_symbols() {
     let document = parse_markhangeul("Hello{pitch=curve} 妈{T7}");
     let codes: Vec<_> = document

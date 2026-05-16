@@ -1,4 +1,5 @@
 mod key_value;
+mod protect;
 mod range;
 mod symbol;
 mod tokenize;
@@ -7,6 +8,7 @@ use crate::ast::{MarkHangeulDocument, MarkHangeulNode, MarkHangeulToken, Scope, 
 use crate::errors::ParseError;
 
 use self::key_value::parse_key_value_annotation;
+use self::protect::markdown_protected_ranges;
 use self::range::{find_closing_brace, RANGE_CLOSE, RANGE_OPEN};
 use self::symbol::parse_symbol_annotation;
 use self::tokenize::{find_implicit_target, next_char_boundary};
@@ -23,8 +25,24 @@ pub fn parse_markhangeul(source: &str) -> MarkHangeulDocument {
     let mut cursor = 0;
     let mut index = 0;
     let mut mark_index = 0;
+    let protected_ranges = markdown_protected_ranges(source);
+    let mut protected_index = 0;
 
     while index < source.len() {
+        while protected_index < protected_ranges.len()
+            && protected_ranges[protected_index].end <= index
+        {
+            protected_index += 1;
+        }
+
+        if protected_index < protected_ranges.len() {
+            let protected = protected_ranges[protected_index];
+            if protected.start <= index && index < protected.end {
+                index = protected.end;
+                continue;
+            }
+        }
+
         if source[index..].starts_with(RANGE_OPEN) {
             if let Some(close_range) = source[index + RANGE_OPEN.len()..].find(RANGE_CLOSE) {
                 let close_range = index + RANGE_OPEN.len() + close_range;

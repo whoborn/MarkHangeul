@@ -119,7 +119,12 @@ fn sample_documents() -> Vec<SampleDocument> {
         SampleDocument {
             id: "mixed",
             label: "기본",
-            source: "# MarkHangeul 샘플\n\n오늘은 날씨가 좋네요{↘}.\n안녕{↗—!}하세요.\nHello{!↗} world{—}.\n妈{T1} 麻{T2} 马{T3} 骂{T4}\n((want to)){reduced=true,stress=weak,duration=short}\n녕{pitch=rise,duration=long,stress=strong}".to_string(),
+            source: "# MarkHangeul 샘플\n\n**오늘은 날씨가 좋네요{↘}.**\n\n안녕{↗—!}하세요.\nHello{!↗} world{—}.\n妈{T1} 麻{T2} 马{T3} 骂{T4}\n\n- Markdown 목록 안의 Hello{!↗}\n- 수식: $E = mc^2$\n\n| 원문 | 표기 |\n| --- | --- |\n| 녕 | 녕{pitch=rise,duration=long,stress=strong} |\n| want to | ((want to)){reduced=true,stress=weak,duration=short} |".to_string(),
+        },
+        SampleDocument {
+            id: "markdown",
+            label: "Markdown",
+            source: "## Markdown + LaTeX\n\n> 마크한글은 **Markdown** 문서와 함께 동작합니다.\n\n1. 굵게: **Hello{!↗}**\n2. 취소선: ~~world{—}~~\n3. 코드: `녕{↗}` 는 코드 안에서는 일반 텍스트입니다.\n\n인라인 수식: $a^2 + b^2 = c^2$\n\n$$\n\\int_0^1 x^2 dx = \\frac{1}{3}\n$$\n\n| 언어 | 예시 |\n| --- | --- |\n| 한국어 | 안녕{↗—!}하세요 |\n| 중국어 | 妈{T1} 麻{T2} 马{T3} 骂{T4} |".to_string(),
         },
         SampleDocument {
             id: "tone",

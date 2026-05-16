@@ -44,11 +44,18 @@
 - ErrorPanel
 - SampleSelector
 - ExportPanel
+- pulldown-cmark 기반 Markdown/GFM preview
+- MathJax 기반 LaTeX 수식 preview
 - Trunk 기반 정적 빌드
 
 ## Syntax
 
 ```md
+# 제목과 Markdown 문법
+
+**안녕{↗—!}하세요**
+수식: $E = mc^2$
+
 녕{↗—!}
 Hello{!↗}
 妈{T2}
