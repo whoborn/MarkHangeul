@@ -31,7 +31,7 @@ impl MarkHangeulDocument {
 #[serde(tag = "type", rename_all = "kebab-case")]
 pub enum MarkHangeulToken {
     Text(TextNode),
-    Markhangeul(MarkHangeulNode),
+    Markhangeul(Box<MarkHangeulNode>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

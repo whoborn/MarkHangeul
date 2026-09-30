@@ -33,6 +33,33 @@ pub fn parse_key_value_annotation(
     let key = normalize_key(raw_key);
     let value = raw_value.trim_matches(['"', '\'']);
     let normalized_value = value.to_ascii_lowercase();
+    if matches!(
+        key.as_str(),
+        "sound_shape"
+            | "hide_sound_shape"
+            | "guide_color"
+            | "nasal"
+            | "aspiration"
+            | "fortis"
+            | "lenis"
+            | "palatalization"
+            | "retroflexion"
+            | "liaison"
+            | "reduced"
+            | "assimilation"
+            | "deletion"
+    ) && !matches!(
+        normalized_value.as_str(),
+        "true" | "false" | "1" | "0" | "yes" | "no" | "y" | "n" | "on" | "off"
+    ) {
+        errors.push(ParseError::error(
+            "INVALID_VALUE",
+            format!("'{key}'는 boolean 값이어야 합니다."),
+            base_index + separator_index + 1,
+            raw_value.len(),
+        ));
+        return;
+    }
 
     match key.as_str() {
         "pitch" => assign_or_error(

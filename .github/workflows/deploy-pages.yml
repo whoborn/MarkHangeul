@@ -31,16 +31,19 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install Trunk
-        run: cargo install --locked trunk
+        run: cargo install --locked trunk --version 0.21.14
 
       - name: Run Workspace Tests
-        run: cargo test --workspace
-
-      - name: Build WASM App
-        run: trunk build --release --public-url "/${{ github.event.repository.name }}/"
+        run: cargo test --workspace --locked
 
       - name: Configure Pages
+        id: pages
         uses: actions/configure-pages@v5
+
+      - name: Build WASM App
+        env:
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: env -u NO_COLOR trunk build --release --locked --public-url "${PAGES_BASE_PATH}/"
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v5

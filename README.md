@@ -1,165 +1,81 @@
-# MarkHangeul
+# MarkHangeul · 마크한글
 
-마크한글(MarkHangeul)은 Markdown 문서 안에서 발음, 억양, 장단, 강세, 성조, 음운 변화를 문자 자체의 시각 변화로 표현하는 표기 포맷입니다.
-
-이 저장소는 Rust/WebAssembly 중심의 monorepo입니다. 기존 React/Vite Node.js 구현은 보존하되 `apps/markhangeul-react`로 분리했고, 현재 주 구현은 Rust core crate와 Yew WASM 웹앱입니다.
-
-## Workspace
-
-```text
-.
-├── Cargo.toml
-├── Trunk.toml
-├── index.html
-├── assets/styles/
-├── crates/
-│   ├── markhangeul-core/
-│   └── markhangeul-web/
-├── apps/
-│   └── markhangeul-react/
-├── docs/
-│   └── SYNTAX.md
-└── .github/workflows/deploy-pages.yml
-```
-
-## Crates
-
-`markhangeul-core`
-
-- Parser
-- AST
-- symbol annotation 해석
-- key-value annotation 해석
-- range annotation 해석
-- Plain Markdown export
-- JSON AST export
-- `cargo test` 기반 테스트
-
-`markhangeul-web`
-
-- Yew 기반 WASM Playground
-- EditorPanel
-- PreviewPanel
-- TokenInspector
-- ErrorPanel
-- SampleSelector
-- ExportPanel
-- pulldown-cmark 기반 Markdown/GFM preview
-- MathJax 기반 LaTeX 수식 preview
-- Trunk 기반 정적 빌드
-
-## Syntax
+한글로 적은 발음의 **높낮이는 글자 자체의 세로 변화**, **장단은 좌우 폭**으로 표현하는 Markdown 확장 포맷과 웹 편집기입니다. 사람이 한글 독음과 발음 정보를 입력하는 표현 엔진이며, 모든 언어의 자동 전사기나 IPA 대체 표준은 아닙니다.
 
 ```md
-# 제목과 Markdown 문법
-
-**안녕{↗—!}하세요**
-수식: $E = mc^2$
-
-녕{↗—!}
-헬로{!↗}
-妈=마{T1}
-麻=마{T2}
-马=마{T3}
-骂=마{T4}
-((원 투)){reduced=true}
-녕{pitch=rise,duration=slight-long,stress=strong}
-아{duration=extra-long}
-詩=시{lang=yue,tone=1}
-마{tone=custom,toneContour=214}
-아{duration=extra-long,guideColor=true}
-마{T2,soundShape=false}
+마{T1} 마{T2} 마{T3} 마{T4}
+마{lang=yue,tone=6}
+마{toneContour=214,duration=long}
+((안녕하세요)){pitch=rise}
+**아{——!}**
 ```
 
-범위 규칙:
+- 중국어 4성·광둥어 6성 및 사용자 지정 contour 지원
+- 8개 패턴 비교용 `toneSystem=generic-8` 제공: 실제 언어의 8성 번호 체계는 아님
+- 한 음절 내부에서도 성조 변화 표시. 보조선 없이도 글자 변형 유지
+- 장단 7단계와 실제 배치 폭 동기화
+- Markdown 표·강조·목록·코드·수식 지원, HTML 입력 비실행
+- 원문 Markdown / 일반 Markdown / CSS 포함 독립 HTML / JSON 파일 저장
+- 서버 없이 브라우저에서 동작하는 Rust + Yew + WebAssembly 정적 앱
 
-- 한글, 한자, 가나는 바로 앞 grapheme에 적용합니다.
-- 라틴 문자는 바로 앞 단어에 적용합니다.
-- 여러 글자 또는 여러 단어는 `((...)){...}`로 적용합니다.
+일반 Markdown 뷰어는 발음 변형을 표시하지 않습니다. 원문을 보존하려면 `.mh.md`, 일반 문서로 사용하려면 일반 MD, 글자 변형을 공유하려면 HTML 내보내기를 선택하세요. HTML의 수식은 TeX 원문으로 남습니다.
 
-기본 렌더링은 원문 Markdown의 글자 색상과 굵기를 바꾸지 않습니다. 성조 표기는 글자 아래 음형태 보조선을 기본으로 표시하고, `soundShape=false` 또는 `hideGuide=true`로 숨길 수 있습니다. 반대로 `↗`, `↘`, `—`, `!`, `°`, `●` 같은 순수 기호형 표기는 글자 자체 변화만 기본으로 하며, 선이 필요할 때 `soundShape=true`를 지정합니다.
+[문법과 지원 범위](docs/SYNTAX.md) · [전체 코드 점검 및 수정 보고서](docs/AUDIT-2026-10-01.md)
 
-장단은 글자 자체를 좌우로 늘리거나 압축해 표현하며, 7단계를 지원합니다. key-value 장단은 폭 변화와 단색 아래 선을 함께 사용할 수 있고, 기호형 장단은 기본적으로 선 없이 폭 변화만 보입니다. 길이별 유색 선이 필요하면 `guideColor=true`를 추가합니다.
-
-- `extra-long`: 아주 길게
-- `long`: 보통 길게
-- `slight-long`: 조금 길게
-- `normal`: 보통
-- `slight-short`: 조금 짧게
-- `short`: 보통 짧게
-- `extra-short`: 아주 짧게
-
-아래 보조선 색상 구분 예: `아{duration=extra-long,guideColor=true}`, `아{duration=extra-short,guideColor=true}`.
-
-성조는 특정 언어의 4성에 고정하지 않고 `tone=1`~`tone=9`, `toneSystem`, `toneContour`로 범용 표현할 수 있습니다. 한자 자체를 그대로 성조 처리하기보다 실제 소리를 한글로 풀어 `妈=마{T1}`, `麻=마{T2}`, `马=마{T3}`, `骂=마{T4}`처럼 표기하는 것을 기본 예제로 둡니다. 성조 보조선은 평탄선, 상승 곡선, 하강 곡선, 굴곡 곡선을 포함한 원형 contour로 렌더링합니다.
-
-기호형 강세 `!`, `!!`는 글자 좌우 폭을 유지한 상태에서 높이만 키웁니다. 기호형 성량 `°`, `●`는 높이와 좌우 폭이 함께 작아지거나 커지는 형태로 표현합니다. 둘 다 font-weight는 바꾸지 않습니다.
-
-글자 아래 음형태 보조선은 성조에서 기본적으로 표시합니다. 필요할 때만 `soundShape=false` 또는 `hideGuide=true`로 숨깁니다. 예: `마{tone=custom,toneContour=214,soundShape=false}`.
-
-강세 `stress`는 Markdown의 `**굵게**`와 충돌하지 않도록 font-weight를 바꾸지 않습니다. 현재 렌더러는 글자 좌우 폭을 유지하고 높이 변화만 사용합니다.
-
-자세한 문법은 [docs/SYNTAX.md](docs/SYNTAX.md)를 보세요.
-
-## Local Development
-
-Workspace 테스트:
-
-```sh
-cargo test --workspace
-```
-
-WASM 앱 타입 체크:
+## 바로 실행
 
 ```sh
 rustup target add wasm32-unknown-unknown
-cargo check -p markhangeul-web --target wasm32-unknown-unknown
+cargo install --locked trunk --version 0.21.14
+env -u NO_COLOR trunk serve
 ```
 
-Trunk 설치와 실행:
+`http://localhost:8080`에서 열고 **성조** 샘플의 번호·음높이·보조선 유무를 비교하세요. 처음 사용하기 안내는 화면 상단에 있습니다. 편집 내용은 자동 저장되지 않으므로 원문 파일을 저장하세요.
+
+## 검증
 
 ```sh
-cargo install --locked trunk
-trunk serve
+cargo fmt --all -- --check
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo check -p markhangeul-web --target wasm32-unknown-unknown --locked
+env -u NO_COLOR trunk build --release --locked --public-url /MarkHangeul/
 ```
 
-정적 빌드:
+## 웹 배포
+
+정적 호스팅 루트에 올리려면:
 
 ```sh
-trunk build --release
+env -u NO_COLOR trunk build --release --locked --public-url /
 ```
 
-현재 Codex 실행 환경처럼 `NO_COLOR=1`이 설정되어 Trunk가 색상 옵션을 잘못 해석하면 다음처럼 실행합니다.
+생성된 `dist/` 전체를 업로드합니다. 프로젝트 하위 경로에 배포하려면 `/MarkHangeul/`처럼 실제 경로를 지정하세요. `.wasm`은 `application/wasm` MIME으로 제공하는 HTTP(S) 서버가 필요합니다. WASM 앱의 `index.html`을 `file://`로 직접 열지 마세요. 내보낸 독립 HTML은 직접 열 수 있습니다.
 
-```sh
-env -u NO_COLOR trunk build --release
+GitHub Pages:
+
+1. 저장소 Settings → Pages → Source를 GitHub Actions로 설정합니다.
+2. `main` push 또는 Deploy workflow의 수동 실행으로 빌드·배포합니다.
+3. workflow는 Pages 메타데이터의 `base_path`를 사용하므로 프로젝트 사이트·사용자 사이트·커스텀 도메인 경로를 하드코딩하지 않습니다.
+
+PR에서는 별도 CI가 포맷·테스트·Clippy·WASM 체크·하위 경로 빌드를 실행합니다. 배포는 `deploy-pages.yml`이 수행합니다. 이 코드 수정 작업에서는 실제 원격 배포를 실행하지 않았습니다.
+
+[GitHub Pages 공식 워크플로 안내](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)와 [Trunk 경로 설정](https://trunk-rs.github.io/trunk/guide/advanced/paths.html)을 참고하세요.
+
+Playground 수식은 버전을 고정한 MathJax CDN을 사용합니다. CDN을 사용할 수 없어도 발음 표시와 편집은 동작하며 수식 조판만 생략됩니다.
+
+## 구조와 기준 구현
+
+```text
+crates/markhangeul-core/   AST, 파서, 성조 해석, export
+crates/markhangeul-web/    Yew UI, 안전한 Markdown/SVG 렌더러, HTML export
+assets/styles/           렌더링과 반응형 UI
+.github/workflows/       CI와 Pages 배포
+apps/markhangeul-react/   보존용 초기 프로토타입 (운영 배포 대상 아님)
 ```
 
-## GitHub Pages
+Rust/WASM 앱이 기준 구현입니다. 구 React 앱은 4성만 지원하고 최신 Markdown 보호·성조 문법이 없으므로 비교·역사 보존용으로만 유지합니다. 기획 v1.3/v1.4는 원래 설계 기록이며 현재 계약은 `docs/SYNTAX.md`를 따릅니다.
 
-`.github/workflows/deploy-pages.yml`는 다음을 수행합니다.
+## 라이선스
 
-- Rust stable 설치
-- `wasm32-unknown-unknown` target 설치
-- Trunk 설치
-- `cargo test --workspace`
-- `trunk build --release --public-url "/${{ github.event.repository.name }}/"`
-- GitHub Pages artifact 업로드 및 배포
-
-GitHub 저장소에서는 `Settings > Pages > Build and deployment > Source`를 `GitHub Actions`로 설정하면 됩니다.
-
-## Legacy Node App
-
-기존 Node.js/React/Vite 구현은 `apps/markhangeul-react`에 있습니다.
-
-```sh
-cd apps/markhangeul-react
-npm install
-npm run dev
-```
-
-## License
-
-MIT
-
-저작자: 주식회사 후본 배영식 (Whoborn Inc. Bae Young Sik)
+MIT · 주식회사 후본 배영식 (Whoborn Inc. Bae Young Sik)

@@ -1,5 +1,5 @@
 use markhangeul_core::{
-    Duration, MarkHangeulDocument, MarkHangeulNode, MarkHangeulToken, Pitch, Scope, Stress, Volume,
+    Duration, MarkHangeulDocument, MarkHangeulNode, MarkHangeulToken, Pitch, Scope,
 };
 use pulldown_cmark::{html, CowStr, Event, Options, Parser};
 use wasm_bindgen::JsCast;
@@ -22,6 +22,16 @@ pub struct PreviewPanelProps {
 
 #[function_component(PreviewPanel)]
 pub fn preview_panel(props: &PreviewPanelProps) -> Html {
+    let font_size = use_state(|| 20u32);
+    let on_size_change = {
+        let font_size = font_size.clone();
+        Callback::from(move |event: InputEvent| {
+            let input = event.target_unchecked_into::<web_sys::HtmlInputElement>();
+            if let Ok(size) = input.value().parse::<u32>() {
+                font_size.set(size.clamp(16, 36));
+            }
+        })
+    };
     let mark_count = props
         .document
         .nodes
@@ -56,6 +66,23 @@ pub fn preview_panel(props: &PreviewPanelProps) -> Html {
         })
     };
 
+    let onkeydown = {
+        let on_select = props.on_select.clone();
+        Callback::from(move |event: KeyboardEvent| {
+            if event.key() != "Enter" && event.key() != " " {
+                return;
+            }
+            if let Some(element) = event.target().and_then(|t| t.dyn_into::<Element>().ok()) {
+                if let Ok(Some(mark)) = element.closest("[data-mh-id]") {
+                    if let Some(id) = mark.get_attribute("data-mh-id") {
+                        event.prevent_default();
+                        on_select.emit(id);
+                    }
+                }
+            }
+        })
+    };
+
     html! {
         <section class="panel preview-panel" aria-labelledby="preview-title">
             <div class="panel-header">
@@ -63,64 +90,126 @@ pub fn preview_panel(props: &PreviewPanelProps) -> Html {
                     <span class="panel-icon">{"↗"}</span>
                     <h2 id="preview-title">{"Render"}</h2>
                 </div>
+                <label class="preview-size">{"글자 크기 "}
+                    <input type="range" min="16" max="36" value={font_size.to_string()} oninput={on_size_change} aria-label="미리보기 글자 크기" />
+                    {format!("{}px", *font_size)}
+                </label>
                 <span class="counter">{mark_count}</span>
             </div>
-            <div class="render-surface markdown-body" aria-label="MarkHangeul rendered output" {onclick}>
+            <div class="render-surface markdown-body" style={format!("font-size:{}px", *font_size)} aria-label="MarkHangeul rendered output" {onclick} {onkeydown}>
                 {Html::from_html_unchecked(AttrValue::from(rendered_html))}
             </div>
         </section>
     }
 }
 
-fn render_preview_html(document: &MarkHangeulDocument, selected_id: Option<&str>) -> String {
-    let markdown = render_markhangeul_markdown(document, selected_id);
-    markdown_to_html(&markdown)
-}
-
-fn render_markhangeul_markdown(
+pub(crate) fn render_preview_html(
     document: &MarkHangeulDocument,
     selected_id: Option<&str>,
 ) -> String {
     let mut markdown = String::new();
-
+    let mut replacements = Vec::new();
+    let mut prefix = "MHPLACEHOLDER".to_string();
+    while document.source.contains(&prefix) {
+        prefix.push('X');
+    }
     for node in &document.nodes {
         match node {
             MarkHangeulToken::Text(text) => markdown.push_str(&text.text),
-            MarkHangeulToken::Markhangeul(mark) => push_mark_html(&mut markdown, mark, selected_id),
+            MarkHangeulToken::Markhangeul(mark) => {
+                let key = format!("{prefix}N{}END", replacements.len());
+                let mut rendered = String::new();
+                push_mark_html(&mut rendered, mark, selected_id);
+                replacements.push((key.clone(), rendered));
+                markdown.push_str(&key);
+            }
         }
     }
-
-    markdown
+    let mut events = Vec::new();
+    for event in Parser::new_ext(&markdown, Options::all()) {
+        match event {
+            Event::Text(text) => {
+                let mut rest = text.as_ref();
+                while let Some((pos, key, rendered)) = replacements
+                    .iter()
+                    .filter_map(|(key, rendered)| rest.find(key).map(|pos| (pos, key, rendered)))
+                    .min_by_key(|entry| entry.0)
+                {
+                    events.push(Event::Text(CowStr::from(rest[..pos].to_string())));
+                    events.push(Event::InlineHtml(CowStr::from(rendered.clone())));
+                    rest = &rest[pos + key.len()..];
+                }
+                events.push(Event::Text(CowStr::from(rest.to_string())));
+            }
+            Event::Html(raw) | Event::InlineHtml(raw) => events.push(Event::Text(raw)),
+            Event::Start(pulldown_cmark::Tag::Link {
+                link_type,
+                dest_url,
+                title,
+                id,
+            }) => {
+                let dest_url = if safe_url(&dest_url) {
+                    dest_url
+                } else {
+                    CowStr::from("")
+                };
+                events.push(Event::Start(pulldown_cmark::Tag::Link {
+                    link_type,
+                    dest_url,
+                    title,
+                    id,
+                }));
+            }
+            Event::Start(pulldown_cmark::Tag::Image {
+                link_type,
+                dest_url,
+                title,
+                id,
+            }) => {
+                let dest_url = if safe_url(&dest_url) {
+                    dest_url
+                } else {
+                    CowStr::from("")
+                };
+                events.push(Event::Start(pulldown_cmark::Tag::Image {
+                    link_type,
+                    dest_url,
+                    title,
+                    id,
+                }));
+            }
+            Event::InlineMath(math) => events.push(Event::InlineHtml(CowStr::from(format!(
+                r#"<span class="math math-inline">\({}\)</span>"#,
+                escape_html(&math)
+            )))),
+            Event::DisplayMath(math) => events.push(Event::Html(CowStr::from(format!(
+                r#"<div class="math math-display">\[{}\]</div>"#,
+                escape_html(&math)
+            )))),
+            other => events.push(other),
+        }
+    }
+    let mut output = String::new();
+    html::push_html(&mut output, events.into_iter());
+    output
 }
 
-fn markdown_to_html(markdown: &str) -> String {
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    options.insert(Options::ENABLE_FOOTNOTES);
-    options.insert(Options::ENABLE_STRIKETHROUGH);
-    options.insert(Options::ENABLE_TASKLISTS);
-    options.insert(Options::ENABLE_SMART_PUNCTUATION);
-    options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
-    options.insert(Options::ENABLE_MATH);
-    options.insert(Options::ENABLE_GFM);
-    options.insert(Options::ENABLE_DEFINITION_LIST);
-    options.insert(Options::ENABLE_SUPERSCRIPT);
-    options.insert(Options::ENABLE_SUBSCRIPT);
+fn safe_url(url: &str) -> bool {
+    let normalized: String = url
+        .chars()
+        .filter(|ch| !ch.is_control() && !ch.is_whitespace())
+        .collect();
+    let scheme = normalized.split(['/', '?', '#']).next().unwrap_or_default();
+    !scheme.contains(':')
+        || ["https:", "http:", "mailto:"]
+            .iter()
+            .any(|s| normalized.to_ascii_lowercase().starts_with(s))
+}
 
-    let parser = Parser::new_ext(markdown, options).map(|event| match event {
-        Event::InlineMath(math) => Event::Html(CowStr::from(format!(
-            r#"<span class="math math-inline">\({}\)</span>"#,
-            escape_html(&math)
-        ))),
-        Event::DisplayMath(math) => Event::Html(CowStr::from(format!(
-            r#"<div class="math math-display">\[{}\]</div>"#,
-            escape_html(&math)
-        ))),
-        other => other,
-    });
-    let mut html_output = String::new();
-    html::push_html(&mut html_output, parser);
-    html_output
+pub(crate) fn export_html(document: &MarkHangeulDocument) -> String {
+    format!("<!doctype html><html lang=\"ko\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>MarkHangeul</title><style>{} {} .markdown-body {{padding:2rem;line-height:1.85}} </style><body><main class=\"markdown-body\">{}</main></body></html>",
+        include_str!("../../../../assets/styles/markhangeul.css"),
+        include_str!("../../../../assets/styles/playground.css"), render_preview_html(document, None).replace("role=\"button\" tabindex=\"0\"", "role=\"img\""))
 }
 
 fn push_mark_html(output: &mut String, node: &MarkHangeulNode, selected_id: Option<&str>) {
@@ -162,78 +251,97 @@ fn push_mark_html(output: &mut String, node: &MarkHangeulNode, selected_id: Opti
         output.push_str(&sound_shape_path);
     }
 
-    let chars: Vec<char> = node.text.chars().collect();
-    let char_count = chars.len();
-
-    for (index, ch) in chars.iter().enumerate() {
-        if *ch == '\n' {
+    use unicode_segmentation::UnicodeSegmentation;
+    let profile = tone_profile(node).or_else(|| pitch_profile(node));
+    let graphemes: Vec<_> = node.text.graphemes(true).collect();
+    for (index, grapheme) in graphemes.iter().copied().enumerate() {
+        if grapheme == "\n" {
             output.push_str("<br>");
             continue;
         }
-
-        output.push_str("<span class=\"mh-char\" style=\"--pitch-y: ");
-        output.push_str(&pitch_offset(node, index, char_count).to_string());
-        output.push_str("px;\">");
-        push_escaped_html_char(output, *ch);
-        output.push_str("</span>");
+        // Continuous affine segments keep strokes connected. A rising/falling
+        // syllable is painted once; a turning contour only splits at its knots.
+        let width = glyph_advance(grapheme);
+        let view_width = width * 100.0;
+        output.push_str(&format!(r#"<svg class="mh-glyph" style="--glyph-width:{width}em" viewBox="0 -15 {view_width} 130" preserveAspectRatio="none" aria-hidden="true">"#));
+        let glyph_id = format!("{}-glyph-{index}", node.id);
+        output.push_str(&format!(
+            r#"<defs><text id="{glyph_id}" style="font-size:100px" x="0" y="85">{}</text></defs>"#,
+            escape_html(grapheme)
+        ));
+        let segments = glyph_segments(profile.as_deref(), index, graphemes.len());
+        for (segment_index, (from, to, start_y, end_y)) in segments.iter().copied().enumerate() {
+            let from = from * width;
+            let to = to * width;
+            let slope = (end_y - start_y) / (to - from);
+            let intercept = start_y - slope * from;
+            let transform = format!("matrix(1 {slope:.6} 0 1 0 {intercept:.6})");
+            if segments.len() == 1 {
+                output.push_str(&format!(
+                    r##"<use href="#{glyph_id}" transform="{transform}"/>"##
+                ));
+            } else {
+                let clip = format!("{}-g{index}-s{segment_index}", node.id);
+                let width = to - from;
+                output.push_str(&format!(r##"<defs><clipPath id="{clip}"><rect x="{from}" y="-15" width="{width}" height="130"/></clipPath></defs><g clip-path="url(#{clip})"><use href="#{glyph_id}" transform="{transform}"/></g>"##));
+            }
+        }
+        output.push_str("</svg>");
     }
 
     output.push_str("</span>");
 }
 
+// Advance estimates affect spacing only: never stretch a narrow Latin glyph
+// to a full Hangul cell. The actual font outlines retain their native proportions.
+fn glyph_advance(grapheme: &str) -> f32 {
+    match grapheme {
+        " " => 0.32,
+        "i" | "l" | "I" | "!" | "." | "," | ":" | ";" | "'" => 0.28,
+        "j" | "t" | "f" | "r" | "(" | ")" => 0.4,
+        "m" | "w" | "M" | "W" => 0.9,
+        _ if grapheme.is_ascii() => 0.65,
+        _ => 1.0,
+    }
+}
+
+// Six SVG units per pitch step = 0.06em. This bounds the largest
+// neighboring high/low jump to 0.24em without merging tone categories.
+fn glyph_segments(profile: Option<&[u8]>, index: usize, count: usize) -> Vec<(f32, f32, f32, f32)> {
+    let Some(profile) = profile.filter(|p| p.len() >= 2) else {
+        return vec![(0.0, 100.0, 0.0, 0.0)];
+    };
+    let count = count.max(1) as f32;
+    let mut stops = vec![0.0];
+    for knot in 1..profile.len() - 1 {
+        let local = (knot as f32 / (profile.len() - 1) as f32 * count - index as f32) * 100.0;
+        if local > 0.001 && local < 99.999 {
+            stops.push(local);
+        }
+    }
+    stops.push(100.0);
+    let offset = |x: f32| {
+        (3.0 - markhangeul_core::render_model::contour_level(
+            profile,
+            (index as f32 + x / 100.0) / count,
+        )) * 6.0
+    };
+    stops
+        .windows(2)
+        .map(|pair| (pair[0], pair[1], offset(pair[0]), offset(pair[1])))
+        .collect()
+}
+
 fn mark_class(node: &MarkHangeulNode) -> String {
     let mut classes = vec!["mh-mark".to_string()];
 
-    if let Some(pitch) = node.attributes.pitch {
-        classes.push(
-            match pitch {
-                Pitch::Low => "mh-pitch-low",
-                Pitch::Mid => "mh-pitch-mid",
-                Pitch::High => "mh-pitch-high",
-                Pitch::Rise => "mh-pitch-rise",
-                Pitch::Fall => "mh-pitch-fall",
-            }
-            .to_string(),
-        );
-    }
-
-    if let Some(duration) = node.attributes.duration {
-        classes.push(
-            match duration {
-                Duration::ExtraShort => "mh-duration-extra-short",
-                Duration::Short => "mh-duration-short",
-                Duration::SlightShort => "mh-duration-slight-short",
-                Duration::Normal => "mh-duration-normal",
-                Duration::SlightLong => "mh-duration-slight-long",
-                Duration::Long => "mh-duration-long",
-                Duration::ExtraLong => "mh-duration-extra-long",
-            }
-            .to_string(),
-        );
-    }
-
-    if let Some(stress) = node.attributes.stress {
-        classes.push(
-            match stress {
-                Stress::Weak => "mh-stress-weak",
-                Stress::Normal => "mh-stress-normal",
-                Stress::Strong => "mh-stress-strong",
-                Stress::ExtraStrong => "mh-stress-extra-strong",
-            }
-            .to_string(),
-        );
-    }
-
-    if let Some(volume) = node.attributes.volume {
-        classes.push(
-            match volume {
-                Volume::Soft => "mh-volume-soft",
-                Volume::Normal => "mh-volume-normal",
-                Volume::Loud => "mh-volume-loud",
-            }
-            .to_string(),
-        );
-    }
+    let mapped = markhangeul_core::render_model::render_classes(&node.attributes);
+    classes.extend(
+        [mapped.pitch, mapped.duration, mapped.stress, mapped.volume]
+            .into_iter()
+            .flatten()
+            .map(str::to_string),
+    );
 
     if let Some(tone) = &node.attributes.tone {
         classes.push("mh-tone".to_string());
@@ -281,42 +389,10 @@ fn sound_shape_path_html(node: &MarkHangeulNode) -> Option<String> {
     ))
 }
 
-fn pitch_offset(node: &MarkHangeulNode, index: usize, char_count: usize) -> f32 {
-    let denominator = char_count.saturating_sub(1).max(1) as f32;
-    let progress = index as f32 / denominator;
-
-    if let Some(profile) = tone_profile(node) {
-        return tone_offset_from_profile(&profile, progress);
-    }
-
-    match node.attributes.pitch {
-        Some(Pitch::Low) => 5.0,
-        Some(Pitch::Mid) => 0.0,
-        Some(Pitch::High) => -6.0,
-        Some(Pitch::Rise) => -6.0,
-        Some(Pitch::Fall) => 6.0,
-        None => 0.0,
-    }
-}
-
 fn tone_profile(node: &MarkHangeulNode) -> Option<Vec<u8>> {
-    let tone = node.attributes.tone.as_ref()?;
-
-    if let Some(contour) = &node.attributes.tone_contour {
-        if let Some(profile) = contour_profile(contour) {
-            return Some(profile);
-        }
-    }
-
-    let value = tone.as_str().to_ascii_lowercase();
-    if value == "neutral" {
-        return Some(vec![3, 3]);
-    }
-
-    named_tone_profile(&value).or_else(|| {
-        let number = value.parse::<u8>().ok()?;
-        numbered_tone_profile(number, node)
-    })
+    markhangeul_core::render_model::resolve_tone(&node.attributes)
+        .ok()
+        .flatten()
 }
 
 fn pitch_profile(node: &MarkHangeulNode) -> Option<Vec<u8>> {
@@ -329,119 +405,13 @@ fn pitch_profile(node: &MarkHangeulNode) -> Option<Vec<u8>> {
     }
 }
 
-fn contour_profile(contour: &str) -> Option<Vec<u8>> {
-    let profile: Vec<u8> = contour
-        .chars()
-        .filter_map(|ch| ch.to_digit(10))
-        .filter(|level| (1..=5).contains(level))
-        .map(|level| level as u8)
-        .collect();
-
-    (profile.len() >= 2).then_some(profile)
-}
-
-fn numbered_tone_profile(number: u8, node: &MarkHangeulNode) -> Option<Vec<u8>> {
-    let system = format!(
-        "{} {}",
-        node.attributes.lang.as_deref().unwrap_or_default(),
-        node.attributes.tone_system.as_deref().unwrap_or_default()
-    )
-    .to_ascii_lowercase();
-
-    if system.contains("yue")
-        || system.contains("cantonese")
-        || system.contains("hong-kong")
-        || system.contains("hong kong")
-        || system.contains("hk")
-    {
-        return cantonese_tone_profile(number);
-    }
-
-    generic_tone_profile(number)
-}
-
-fn cantonese_tone_profile(number: u8) -> Option<Vec<u8>> {
-    match number {
-        1 => Some(vec![5, 5]),
-        2 => Some(vec![2, 5]),
-        3 => Some(vec![3, 3]),
-        4 => Some(vec![2, 1]),
-        5 => Some(vec![2, 3]),
-        6 => Some(vec![2, 2]),
-        _ => generic_tone_profile(number),
-    }
-}
-
-fn generic_tone_profile(number: u8) -> Option<Vec<u8>> {
-    match number {
-        1 => Some(vec![5, 5]),
-        2 => Some(vec![3, 5]),
-        3 => Some(vec![2, 1, 4]),
-        4 => Some(vec![5, 1]),
-        5 => Some(vec![3, 3]),
-        6 => Some(vec![2, 2]),
-        7 => Some(vec![5, 3]),
-        8 => Some(vec![2, 4]),
-        9 => Some(vec![1, 1]),
-        _ => None,
-    }
-}
-
-fn named_tone_profile(value: &str) -> Option<Vec<u8>> {
-    match value {
-        "high" | "high-level" | "level-high" => Some(vec![5, 5]),
-        "mid" | "mid-level" | "level-mid" => Some(vec![3, 3]),
-        "low" | "low-level" | "level-low" => Some(vec![1, 1]),
-        "rise" | "rising" | "high-rising" => Some(vec![2, 5]),
-        "fall" | "falling" | "high-falling" => Some(vec![5, 1]),
-        "dip" | "dipping" | "fall-rise" | "falling-rising" => Some(vec![3, 1, 4]),
-        "checked-high" => Some(vec![5, 3]),
-        "checked-low" => Some(vec![2, 1]),
-        _ => None,
-    }
-}
-
 fn sound_shape_path_from_profile(profile: &[u8]) -> String {
-    let points = profile_points(profile);
-    let Some((x, y)) = points.first() else {
-        return String::new();
-    };
-
-    let mut path = format!("M {x:.1} {y:.1}");
-    if points.len() == 1 {
-        return path;
-    }
-
-    for index in 0..points.len() - 1 {
-        let previous = if index == 0 {
-            points[index]
-        } else {
-            points[index - 1]
-        };
-        let current = points[index];
-        let next = points[index + 1];
-        let following = if index + 2 < points.len() {
-            points[index + 2]
-        } else {
-            next
-        };
-
-        let control_a = (
-            current.0 + (next.0 - previous.0) / 6.0,
-            current.1 + (next.1 - previous.1) / 6.0,
-        );
-        let control_b = (
-            next.0 - (following.0 - current.0) / 6.0,
-            next.1 - (following.1 - current.1) / 6.0,
-        );
-
-        path.push_str(&format!(
-            " C {:.1} {:.1}, {:.1} {:.1}, {:.1} {:.1}",
-            control_a.0, control_a.1, control_b.0, control_b.1, next.0, next.1
-        ));
-    }
-
-    path
+    profile_points(profile)
+        .iter()
+        .enumerate()
+        .map(|(i, (x, y))| format!("{} {x:.1} {y:.1}", if i == 0 { "M" } else { "L" }))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn duration_sound_shape_path(duration: Duration) -> Option<String> {
@@ -459,26 +429,6 @@ fn duration_sound_shape_path(duration: Duration) -> Option<String> {
     Some(format!("M {start:.1} 13.0 L {end:.1} 13.0"))
 }
 
-fn tone_offset_from_profile(profile: &[u8], progress: f32) -> f32 {
-    if profile.is_empty() {
-        return 0.0;
-    }
-
-    if profile.len() == 1 {
-        return level_to_offset(profile[0]);
-    }
-
-    let scaled = progress.clamp(0.0, 1.0) * (profile.len() - 1) as f32;
-    let left = scaled.floor() as usize;
-    let right = (left + 1).min(profile.len() - 1);
-    let local = scaled - left as f32;
-    interpolate(
-        level_to_offset(profile[left]),
-        level_to_offset(profile[right]),
-        local,
-    )
-}
-
 fn profile_points(profile: &[u8]) -> Vec<(f32, f32)> {
     let denominator = profile.len().saturating_sub(1).max(1) as f32;
     profile
@@ -490,10 +440,6 @@ fn profile_points(profile: &[u8]) -> Vec<(f32, f32)> {
             (x, y)
         })
         .collect()
-}
-
-fn level_to_offset(level: u8) -> f32 {
-    7.5 - level.clamp(1, 5) as f32 * 3.0
 }
 
 fn level_to_svg_y(level: u8) -> f32 {
@@ -523,7 +469,7 @@ fn tone_shape_name(profile: &[u8]) -> &'static str {
     let min = *profile.iter().min().expect("profile is not empty");
     let max = *profile.iter().max().expect("profile is not empty");
 
-    if max.saturating_sub(min) <= 1 {
+    if max == min {
         return if max <= 2 {
             "low-level"
         } else if min >= 4 {
@@ -555,7 +501,10 @@ fn show_sound_shape(node: &MarkHangeulNode) -> bool {
         return show;
     }
 
-    if node.attributes.tone.is_some() || node.attributes.guide_color == Some(true) {
+    if node.attributes.tone.is_some()
+        || node.attributes.tone_contour.is_some()
+        || node.attributes.guide_color == Some(true)
+    {
         return true;
     }
 
@@ -572,10 +521,6 @@ fn is_symbol_only_annotation(raw_annotation: &str) -> bool {
         .map(str::trim)
         .filter(|part| !part.is_empty())
         .all(|part| !part.contains('='))
-}
-
-fn interpolate(from: f32, to: f32, progress: f32) -> f32 {
-    from + (to - from) * progress
 }
 
 fn scope_name(scope: Scope) -> &'static str {
@@ -692,12 +637,12 @@ mod tests {
     }
 
     #[test]
-    fn renders_tone_sound_shape_as_curved_path() {
+    fn renders_tone_sound_shape_without_interpolation_overshoot() {
         let document = parse_markhangeul("마{T3}");
         let html = render_preview_html(&document, None);
 
-        assert!(html.contains(" C "));
-        assert!(!html.contains(" L "));
+        assert!(html.contains(" L "));
+        assert!(!html.contains(" C "));
     }
 
     #[test]
@@ -705,7 +650,105 @@ mod tests {
         let rise = render_preview_html(&parse_markhangeul("마{↗}"), None);
         let fall = render_preview_html(&parse_markhangeul("마{↘}"), None);
 
-        assert!(rise.contains("--pitch-y: -6px"));
-        assert!(fall.contains("--pitch-y: 6px"));
+        assert!(rise.contains("matrix(1"));
+        assert_ne!(rise, fall);
+    }
+}
+
+#[cfg(test)]
+mod regression_tests {
+    use super::*;
+    use markhangeul_core::parse_markhangeul;
+
+    #[test]
+    fn user_html_is_inert_and_unsafe_links_are_removed() {
+        let d = parse_markhangeul("<script>alert(1)</script>\n\n<img src=x onerror=alert(1)>\n\n[click](javascript:alert%281%29)\n\n마{T2,note=\"<svg/onload=alert(1)>\"}");
+        let rendered = render_preview_html(&d, None);
+        assert!(!rendered.contains("<script>"));
+        assert!(!rendered.contains("<img src=x"));
+        assert!(!rendered.contains("href=\"javascript:"));
+        assert!(!rendered.contains("<svg/onload"));
+        assert!(rendered.contains("&lt;script&gt;"));
+    }
+
+    #[test]
+    fn contour_alone_and_hidden_guide_still_warp_single_grapheme() {
+        let html = render_preview_html(
+            &parse_markhangeul("마{toneContour=214,soundShape=false}"),
+            None,
+        );
+        assert_eq!(html.matches("class=\"mh-glyph\"").count(), 1);
+        assert_eq!(html.matches("<use ").count(), 2);
+        assert!(!html.contains("sound-shape-path"));
+        assert!(html.contains("마"));
+    }
+
+    #[test]
+    fn four_six_eight_have_distinct_letter_geometry_without_guides() {
+        for (system, count) in [("mandarin", 4), ("yue", 6), ("generic-8", 8)] {
+            let mut signatures = std::collections::HashSet::new();
+            for tone in 1..=count {
+                let html = render_preview_html(
+                    &parse_markhangeul(&format!(
+                        "마{{toneSystem={system},tone={tone},soundShape=false}}"
+                    )),
+                    None,
+                );
+                let transforms: Vec<_> = html
+                    .split("transform=\"")
+                    .skip(1)
+                    .map(|s| s.split('"').next().unwrap())
+                    .collect();
+                assert!(signatures.insert(transforms.join(";")), "{system} {tone}");
+            }
+        }
+    }
+
+    #[test]
+    fn markdown_labels_code_tables_and_exports_survive() {
+        let d = parse_markhangeul(
+            "_hello{T2}_ [마{T1}](https://example.com)\n\n`마{T2}`\n\n| 음 |\n| - |\n| 마{T3} |",
+        );
+        let rendered = render_preview_html(&d, None);
+        assert!(rendered.contains("<em><span"));
+        assert!(rendered.contains("<a href=\"https://example.com\"><span"));
+        assert!(rendered.contains("<code>마{T2}</code>"));
+        assert!(rendered.contains("<table>"));
+        let export = export_html(&d);
+        assert!(export.starts_with("<!doctype html>"));
+        assert!(export.contains(".mh-glyph"));
+        assert!(!export.contains("<script"));
+    }
+}
+
+#[cfg(test)]
+mod typography_tests {
+    use super::*;
+
+    #[test]
+    fn contour_segments_join_without_steps_and_stay_near_baseline() {
+        for profile in [vec![5, 1], vec![2, 1, 4], vec![1, 5, 1, 5]] {
+            let segments = glyph_segments(Some(&profile), 0, 1);
+            for pair in segments.windows(2) {
+                assert_eq!(pair[0].1, pair[1].0);
+                assert_eq!(pair[0].3, pair[1].2);
+            }
+            for (_, _, start, end) in segments {
+                assert!(start.abs() <= 12.0 && end.abs() <= 12.0);
+            }
+            let left = glyph_segments(Some(&profile), 0, 2);
+            let right = glyph_segments(Some(&profile), 1, 2);
+            assert_eq!(left.last().unwrap().3, right.first().unwrap().2);
+        }
+    }
+
+    #[test]
+    fn straight_contours_paint_once_without_slice_edges_or_forced_width() {
+        let html =
+            render_preview_html(&markhangeul_core::parse_markhangeul("마{T2}Hello{↗}"), None);
+        assert_eq!(html.matches("<use ").count(), 6);
+        assert!(!html.contains("clipPath"));
+        assert!(!html.contains("textLength"));
+        assert!(glyph_advance("l") < glyph_advance("H"));
     }
 }

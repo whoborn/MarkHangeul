@@ -176,7 +176,7 @@
   color: #17212b;
   background: #ffffff;
   font-size: 1rem;
-  line-height: 1.7;
+  line-height: 1.85;
   white-space: normal;
   overflow-wrap: anywhere;
 }
@@ -238,7 +238,7 @@
 .markdown-body table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.94rem;
+  font-size: 0.94em;
 }
 
 .markdown-body th,
@@ -517,4 +517,17 @@
     padding: 18px;
     font-size: 1.05rem;
   }
+}
+
+.usage-guide { padding: 1rem; margin-bottom: 1rem; background: white; border: 1px solid var(--border); border-radius: 8px; }
+.usage-guide summary { cursor: pointer; font-weight: 700; }
+.export-help { padding-inline: 12px; color: var(--muted); }
+.segmented-control button[aria-pressed="true"] { background: white; color: var(--accent-strong); }
+textarea.export-code { width: calc(100% - 24px); min-height: 200px; }
+
+.preview-size { display: flex; gap: .35rem; align-items: center; font-size: .8rem; }
+.preview-size input { width: 90px; }
+
+@media (max-width: 720px) {
+  .markdown-body th { font-size: 0.8em; white-space: nowrap; padding-inline: 0.35em; }
 }

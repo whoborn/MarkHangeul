@@ -65,3 +65,68 @@ fn tone_class(value: &Tone) -> &'static str {
         "mh-tone"
     }
 }
+
+/// Explicit contours are authoritative. Numeric categories have no universal pitch.
+pub fn resolve_tone(a: &MarkHangeulAttributes) -> Result<Option<Vec<u8>>, String> {
+    if let Some(contour) = &a.tone_contour {
+        if !(2..=16).contains(&contour.len())
+            || !contour.bytes().all(|b| (b'1'..=b'5').contains(&b))
+        {
+            return Err("toneContour는 1~5 숫자 2~16개여야 합니다.".into());
+        }
+        return Ok(Some(contour.bytes().map(|b| b - b'0').collect()));
+    }
+    let Some(tone) = &a.tone else {
+        return Ok(None);
+    };
+    let value = tone.as_str();
+    let named = match value {
+        "neutral" => Some("33"),
+        "high" | "high-level" | "level-high" => Some("55"),
+        "mid" | "mid-level" | "level-mid" => Some("33"),
+        "low" | "low-level" | "level-low" => Some("11"),
+        "rise" | "rising" | "high-rising" => Some("25"),
+        "fall" | "falling" | "high-falling" => Some("51"),
+        "dip" | "dipping" | "fall-rise" | "falling-rising" => Some("314"),
+        _ => None,
+    };
+    if let Some(contour) = named {
+        return Ok(Some(contour.bytes().map(|b| b - b'0').collect()));
+    }
+    let system = a
+        .tone_system
+        .as_deref()
+        .or(a.lang.as_deref())
+        .unwrap_or("mandarin")
+        .to_ascii_lowercase();
+    let contours: &[&str] = match system.as_str() {
+        "mandarin" | "zh" | "zh-cn" | "zh-tw" | "cmn" => &["55", "35", "214", "51"],
+        "yue" | "cantonese" | "yue-hk" | "zh-hk" => &["55", "35", "33", "21", "13", "22"],
+        // Demonstration inventory, deliberately not attributed to a real language.
+        "generic-8" => &["55", "35", "214", "51", "33", "22", "53", "24"],
+        _ => {
+            return Err(format!(
+                "성조 체계 '{system}'의 기본값이 없습니다. toneContour를 명시하세요."
+            ))
+        }
+    };
+    let contour = value
+        .parse::<usize>()
+        .ok()
+        .and_then(|n| n.checked_sub(1))
+        .and_then(|i| contours.get(i))
+        .ok_or_else(|| {
+            format!("성조 '{value}'는 '{system}'에 없습니다. toneContour를 명시하세요.")
+        })?;
+    Ok(Some(contour.bytes().map(|b| b - b'0').collect()))
+}
+
+pub fn contour_level(profile: &[u8], progress: f32) -> f32 {
+    if profile.is_empty() {
+        return 3.0;
+    }
+    let p = progress.clamp(0.0, 1.0) * profile.len().saturating_sub(1) as f32;
+    let left = p.floor() as usize;
+    let right = (left + 1).min(profile.len() - 1);
+    profile[left] as f32 + (profile[right] as f32 - profile[left] as f32) * (p - left as f32)
+}

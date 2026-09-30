@@ -22,8 +22,7 @@ pub fn find_implicit_target(prefix: &str) -> Option<TargetMatch> {
         return None;
     }
 
-    let graphemes: Vec<(usize, &str)> = prefix.grapheme_indices(true).collect();
-    let (last_start, last_grapheme) = graphemes.last().copied()?;
+    let (last_start, last_grapheme) = prefix.grapheme_indices(true).next_back()?;
 
     if last_grapheme.chars().all(char::is_whitespace) {
         return None;
@@ -32,9 +31,9 @@ pub fn find_implicit_target(prefix: &str) -> Option<TargetMatch> {
     if is_latin_word_grapheme(last_grapheme) {
         let mut start = last_start;
 
-        for (candidate_start, grapheme) in graphemes.iter().rev() {
+        for (candidate_start, grapheme) in prefix.grapheme_indices(true).rev() {
             if is_latin_word_grapheme(grapheme) {
-                start = *candidate_start;
+                start = candidate_start;
             } else {
                 break;
             }
@@ -59,8 +58,13 @@ pub fn find_implicit_target(prefix: &str) -> Option<TargetMatch> {
 }
 
 fn is_latin_word_grapheme(grapheme: &str) -> bool {
-    grapheme.chars().all(|ch| {
-        is_latin_char(ch) || ch.is_ascii_digit() || matches!(ch, '\'' | '’' | '.' | '-' | '_')
+    grapheme.chars().next().is_some_and(|ch| {
+        is_latin_char(ch) || ch.is_ascii_digit() || matches!(ch, '\'' | '’' | '-')
+    }) && grapheme.chars().all(|ch| {
+        is_latin_char(ch)
+            || matches!(ch as u32, 0x0300..=0x036f)
+            || ch.is_ascii_digit()
+            || matches!(ch, '\'' | '’' | '-')
     })
 }
 

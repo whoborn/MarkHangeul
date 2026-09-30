@@ -25,10 +25,11 @@ pub fn editor_panel(props: &EditorPanelProps) -> Html {
                     <span class="panel-icon">{"{}"}</span>
                     <h2 id="source-title">{"Source"}</h2>
                 </div>
-                <span class="counter">{props.source.len()}</span>
+                <span class="counter">{props.source.chars().count()}</span>
             </div>
             <textarea
                 class="source-editor"
+                aria-label="마크한글 원문 편집기"
                 spellcheck="false"
                 value={props.source.clone()}
                 {oninput}

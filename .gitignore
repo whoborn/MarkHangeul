@@ -5,3 +5,6 @@
 /.trunk/
 *.log
 .DS_Store
+
+/output/
+/.playwright-cli/

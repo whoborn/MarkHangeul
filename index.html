@@ -7,36 +7,39 @@
       name="description"
       content="마크한글(MarkHangeul) Rust/WASM visual pronunciation notation playground"
     />
+    <link rel="icon" href="data:," />
     <title>MarkHangeul</title>
     <base data-trunk-public-url />
     <script>
       window.MathJax = {
+        loader: { load: ["ui/safe"] },
         tex: {
           inlineMath: [["\\(", "\\)"], ["$", "$"]],
           displayMath: [["\\[", "\\]"], ["$$", "$$"]],
           processEscapes: true
         },
         options: {
+          safeOptions: { allow: { URLs: "none", classes: "none", cssIDs: "none", styles: "none" } },
           skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"]
         },
         startup: {
           typeset: false
         }
       };
+      let mathQueue = Promise.resolve();
       window.markHangeulTypesetMath = function () {
-        const run = function () {
-          if (window.MathJax && window.MathJax.typesetPromise) {
-            window.MathJax.typesetPromise();
-          } else {
-            window.setTimeout(run, 80);
-          }
-        };
-        run();
+        const mj = window.MathJax;
+        if (!mj || !mj.typesetPromise) return;
+        mathQueue = mathQueue.then(() => {
+          mj.typesetClear();
+          return mj.typesetPromise(Array.from(document.querySelectorAll('.render-surface .math')));
+        }).catch(() => {});
       };
+      window.addEventListener('load', () => window.markHangeulTypesetMath());
     </script>
     <script
       defer
-      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"
+      src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js"
     ></script>
     <link data-trunk rel="rust" href="crates/markhangeul-web/Cargo.toml" />
     <link data-trunk rel="css" href="assets/styles/markhangeul.css" />

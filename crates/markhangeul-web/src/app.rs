@@ -13,12 +13,20 @@ pub fn app() -> Html {
     let samples = sample_documents();
     let source = use_state(|| samples[0].source.clone());
     let selected_id = use_state(|| Some("mh-0".to_string()));
-    let export_kind = use_state(|| ExportKind::Plain);
+    let export_kind = use_state(|| ExportKind::Source);
 
-    let document = parse_markhangeul(&source);
+    let document = use_memo((*source).clone(), |source| parse_markhangeul(source));
     let annotation_nodes = collect_mark_nodes(&document);
-    let plain_markdown = export_plain_markdown(&document);
-    let json_ast = export_json_ast(&document);
+    let plain_markdown = if *export_kind == ExportKind::Plain {
+        export_plain_markdown(&document)
+    } else {
+        String::new()
+    };
+    let json_ast = if *export_kind == ExportKind::Json {
+        export_json_ast(&document)
+    } else {
+        String::new()
+    };
 
     let on_source_change = {
         let source = source.clone();
@@ -63,16 +71,23 @@ pub fn app() -> Html {
                     <div class="brand-mark">{"ㅎ"}</div>
                     <div>
                         <h1>{"MarkHangeul"}</h1>
-                        <p>{"마크한글 Rust/WASM"}</p>
+                        <p>{"높낮이와 장평으로 읽는 발음"}</p>
                     </div>
                 </div>
                 <SampleSelector samples={samples} on_select={on_sample_select} />
             </header>
 
+            <details class="usage-guide">
+                <summary>{"처음 사용하기 · 성조 읽는 법"}</summary>
+                <p>{"높낮이는 음높이(1=낮음, 5=높음), 좌우 폭은 발음 길이입니다. 글자의 왼쪽에서 오른쪽으로 음높이를 읽습니다."}</p>
+                <p>{"중국어: 마{T1}~마{T4} · 광둥어: 마{lang=yue,tone=1}~6 · 다른 언어: 마{toneContour=214}. 성조 번호는 언어마다 다릅니다."}</p>
+                <p>{"장단: 아{duration=long} · 보조선 숨김: 마{T3,soundShape=false}. 문법 기호를 그대로 쓰려면 코드(`...`) 또는 역슬래시로 여는 중괄호를 이스케이프하세요."}</p>
+                <p>{"한글 발음은 직접 입력합니다. 자동 번역·전사·변조는 하지 않으며, 한글로 구분하기 어려운 소리는 ipa와 note로 함께 기록하세요."}</p>
+            </details>
             <section class="workspace-grid">
                 <EditorPanel source={(*source).clone()} on_change={on_source_change} />
                 <PreviewPanel
-                    document={document.clone()}
+                    document={(*document).clone()}
                     selected_id={(*selected_id).clone()}
                     on_select={on_select.clone()}
                 />
@@ -87,6 +102,8 @@ pub fn app() -> Html {
                 <ErrorPanel errors={document.errors.clone()} />
                 <ExportPanel
                     active={(*export_kind).clone()}
+                    source={(*source).clone()}
+                    html_document={if *export_kind == ExportKind::Html { crate::components::export_html(&document) } else { String::new() }}
                     plain_markdown={plain_markdown}
                     json_ast={json_ast}
                     on_change={on_export_change}
@@ -101,7 +118,7 @@ fn collect_mark_nodes(document: &MarkHangeulDocument) -> Vec<MarkHangeulNode> {
         .nodes
         .iter()
         .filter_map(|node| match node {
-            MarkHangeulToken::Markhangeul(mark) => Some(mark.clone()),
+            MarkHangeulToken::Markhangeul(mark) => Some(mark.as_ref().clone()),
             MarkHangeulToken::Text(_) => None,
         })
         .collect()
@@ -129,7 +146,7 @@ fn sample_documents() -> Vec<SampleDocument> {
         SampleDocument {
             id: "tone",
             label: "성조",
-            source: "## 범용 성조\n\n중국어 4성 한글 발음: 妈=마{T1} 麻=마{T2} 马=마{T3} 骂=마{T4}\n\n홍콩 광둥어 6성 한글 발음 예시: 詩=시{lang=yue,tone=1} 史=시{lang=yue,tone=2} 試=시{lang=yue,tone=3} 時=시{lang=yue,tone=4} 市=시{lang=yue,tone=5} 事=시{lang=yue,tone=6}\n\n8성 체계 예시: 아{tone=1} 아{tone=2} 아{tone=3} 아{tone=4} 아{tone=5} 아{tone=6} 아{tone=7} 아{tone=8}\n\n사용자 contour: 마{tone=custom,toneContour=53} 마{tone=custom,toneContour=214}\n\n아래선 숨김: 마{T2,soundShape=false}\n\nこ=코{↑} え=에{↓} か=카{↗} き=키{↘}".to_string(),
+            source: tone_comparison_sample(),
         },
         SampleDocument {
             id: "duration",
@@ -147,4 +164,32 @@ fn sample_documents() -> Vec<SampleDocument> {
             source: "안녕{↗—!}\n헬로{pitch=curve}\n마{tone=}\n((닫히지 않은 범위){pitch=rise}\n빈{}표기".to_string(),
         },
     ]
+}
+
+fn tone_comparison_sample() -> String {
+    let mut source = String::from("# 성조 비교\n\n왼쪽→오른쪽으로 높낮이를 읽습니다. 1은 낮음, 5는 높음입니다. 같은 한글의 변형을 비교해 보세요.\n\n");
+    for (label, system, contours) in [
+        ("중국어 4성", "mandarin", vec!["55", "35", "214", "51"]),
+        (
+            "광둥어 6성",
+            "yue",
+            vec!["55", "35", "33", "21", "13", "22"],
+        ),
+        (
+            "8개 대비 시연 · 실제 언어의 성조 번호 아님",
+            "generic-8",
+            vec!["55", "35", "214", "51", "33", "22", "53", "24"],
+        ),
+    ] {
+        source.push_str(&format!(
+            "## {label}\n\n| 번호 | 음높이 | 글자 + 보조선 | 글자만 |\n| --- | --- | --- | --- |\n"
+        ));
+        for (index, contour) in contours.iter().enumerate() {
+            let n = index + 1;
+            source.push_str(&format!("| {n} | {contour} | 마{{toneSystem={system},tone={n}}} | 마{{toneSystem={system},tone={n},soundShape=false}} |\n"));
+        }
+        source.push('\n');
+    }
+    source.push_str("## 직접 지정\n\n마{toneContour=151} 마{toneContour=214,duration=long}\n\n실제 언어·방언은 확인된 contour를 직접 입력하세요. 입성·발성 방식·음소 차이는 높낮이만으로 모두 표현되지 않으므로 duration, ipa, note를 함께 기록하세요.\n");
+    source
 }

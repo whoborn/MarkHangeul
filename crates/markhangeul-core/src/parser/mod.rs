@@ -43,6 +43,17 @@ pub fn parse_markhangeul(source: &str) -> MarkHangeulDocument {
             }
         }
 
+        if source[..index]
+            .chars()
+            .rev()
+            .take_while(|c| *c == '\\')
+            .count()
+            % 2
+            == 1
+        {
+            index = next_char_boundary(source, index);
+            continue;
+        }
         if source[index..].starts_with(RANGE_OPEN) {
             if let Some(close_range) = source[index + RANGE_OPEN.len()..].find(RANGE_CLOSE) {
                 let close_range = index + RANGE_OPEN.len() + close_range;
@@ -51,6 +62,13 @@ pub fn parse_markhangeul(source: &str) -> MarkHangeulDocument {
                 if source[annotation_open..].starts_with('{') {
                     match find_closing_brace(source, annotation_open) {
                         Some(annotation_close) => {
+                            if protected_ranges
+                                .iter()
+                                .any(|r| r.start < annotation_close + 1 && r.end > index)
+                            {
+                                index = annotation_close + 1;
+                                continue;
+                            }
                             push_text(&mut nodes, &source[cursor..index], cursor);
 
                             let target_text = &source[index + RANGE_OPEN.len()..close_range];
@@ -58,7 +76,7 @@ pub fn parse_markhangeul(source: &str) -> MarkHangeulDocument {
                             let parsed = parse_annotation(raw_annotation, annotation_open + 1);
                             let node_errors = parsed.errors.clone();
 
-                            nodes.push(MarkHangeulToken::Markhangeul(MarkHangeulNode {
+                            nodes.push(MarkHangeulToken::Markhangeul(Box::new(MarkHangeulNode {
                                 id: make_node_id(mark_index),
                                 text: target_text.to_string(),
                                 raw_annotation: raw_annotation.to_string(),
@@ -69,7 +87,7 @@ pub fn parse_markhangeul(source: &str) -> MarkHangeulDocument {
                                 annotation_start: annotation_open,
                                 annotation_end: annotation_close + 1,
                                 errors: node_errors,
-                            }));
+                            })));
 
                             mark_index += 1;
                             errors.extend(parsed.errors);
@@ -107,6 +125,13 @@ pub fn parse_markhangeul(source: &str) -> MarkHangeulDocument {
                     let prefix = &source[cursor..index];
 
                     if let Some(target) = find_implicit_target(prefix) {
+                        if protected_ranges.iter().any(|r| {
+                            r.start < annotation_close + 1
+                                && r.end > cursor + target.start_in_prefix
+                        }) {
+                            index = annotation_close + 1;
+                            continue;
+                        }
                         push_text(&mut nodes, &prefix[..target.start_in_prefix], cursor);
 
                         let raw_annotation = &source[index + 1..annotation_close];
@@ -114,7 +139,7 @@ pub fn parse_markhangeul(source: &str) -> MarkHangeulDocument {
                         let node_errors = parsed.errors.clone();
                         let target_start = cursor + target.start_in_prefix;
 
-                        nodes.push(MarkHangeulToken::Markhangeul(MarkHangeulNode {
+                        nodes.push(MarkHangeulToken::Markhangeul(Box::new(MarkHangeulNode {
                             id: make_node_id(mark_index),
                             text: target.text,
                             raw_annotation: raw_annotation.to_string(),
@@ -125,7 +150,7 @@ pub fn parse_markhangeul(source: &str) -> MarkHangeulDocument {
                             annotation_start: index,
                             annotation_end: annotation_close + 1,
                             errors: node_errors,
-                        }));
+                        })));
 
                         mark_index += 1;
                         errors.extend(parsed.errors);
@@ -172,36 +197,24 @@ fn parse_annotation(raw_annotation: &str, base_index: usize) -> AnnotationParseR
         return AnnotationParseResult { attributes, errors };
     }
 
-    let parts: Vec<&str> = raw
-        .split(',')
-        .map(str::trim)
-        .filter(|part| !part.is_empty())
-        .collect();
-
-    if parts.iter().any(|part| part.contains('=')) {
-        for part in parts {
-            let local_offset = raw_annotation.find(part).unwrap_or_default();
-            if part.contains('=') {
-                parse_key_value_annotation(
-                    part,
-                    &mut attributes,
-                    &mut errors,
-                    base_index + local_offset,
-                );
-            } else {
-                parse_symbol_annotation(
-                    part,
-                    &mut attributes,
-                    &mut errors,
-                    base_index + local_offset,
-                );
-            }
+    for (offset, part) in range::annotation_parts(raw_annotation) {
+        if part.contains('=') {
+            parse_key_value_annotation(part, &mut attributes, &mut errors, base_index + offset);
+        } else {
+            parse_symbol_annotation(part, &mut attributes, &mut errors, base_index + offset);
         }
-    } else {
-        let offset = raw_annotation.find(raw).unwrap_or_default();
-        parse_symbol_annotation(raw, &mut attributes, &mut errors, base_index + offset);
     }
 
+    if attributes.tone.is_some() || attributes.tone_contour.is_some() {
+        if let Err(message) = crate::render_model::resolve_tone(&attributes) {
+            errors.push(ParseError::error(
+                "INVALID_TONE_PROFILE",
+                message,
+                base_index,
+                raw_annotation.len(),
+            ));
+        }
+    }
     AnnotationParseResult { attributes, errors }
 }
 

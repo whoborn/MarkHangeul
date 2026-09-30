@@ -604,6 +604,7 @@ checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
 name = "markhangeul-core"
 version = "0.1.0"
 dependencies = [
+ "pulldown-cmark",
  "serde",
  "serde_json",
  "unicode-segmentation",
@@ -616,6 +617,7 @@ dependencies = [
  "markhangeul-core",
  "pulldown-cmark",
  "serde_json",
+ "unicode-segmentation",
  "wasm-bindgen",
  "web-sys",
  "yew",

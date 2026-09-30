@@ -8,7 +8,7 @@ fn mark_nodes(source: &str) -> Vec<markhangeul_core::MarkHangeulNode> {
         .nodes
         .into_iter()
         .filter_map(|node| match node {
-            MarkHangeulToken::Markhangeul(mark) => Some(mark),
+            MarkHangeulToken::Markhangeul(mark) => Some(*mark),
             MarkHangeulToken::Text(_) => None,
         })
         .collect()

@@ -27,6 +27,7 @@ function App() {
 
   return (
     <main className="app-shell">
+      <p role="status">보존용 구버전: 4성만 지원합니다. 최신 Markdown·6성·8성 표기는 저장소 루트의 Rust/WASM 앱을 사용하세요.</p>
       <header className="top-bar">
         <div className="brand-block">
           <FileCode2 aria-hidden="true" size={24} />

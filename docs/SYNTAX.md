@@ -1,292 +1,100 @@
-# MarkHangeul Syntax v0.1
+# MarkHangeul 문법 · 수정판
 
-마크한글은 일반 Markdown 텍스트를 보존하면서 필요한 구간에만 발음 정보를 붙입니다. 전용 렌더러가 있을 때 annotation은 문자 자체의 시각 효과로 변환되고, Plain Markdown export에서는 annotation이 제거된 본문만 남습니다.
+## 목적과 호환성
 
-## 기본형
+한글 독음은 작성자가 입력하고, 발음의 **높낮이는 글자 내부의 세로 위치**, **길이는 장평**으로 표현합니다. 자동 번역·자동 전사·음성 합성은 수행하지 않습니다. 일반 Markdown에서는 `{...}` 원문이 보이며, 글자 변형에는 전용 렌더러나 HTML 내보내기가 필요합니다. GitHub README에 CSS/SVG 변형이 그대로 표시된다고 보장하지 않습니다.
 
-```text
-대상{표기}
-```
-
-예:
+## 입력과 범위
 
 ```md
-녕{↗—!}
-헬로{!↗}
-妈=마{T1}
-麻=마{T2}
-马=마{T3}
-骂=마{T4}
+안녕{↗—!}하세요
+마{T1} 마{T2} 마{T3} 마{T4}
+마{lang=yue,tone=6}
+마{toneContour=214,duration=long}
+((안녕하세요)){pitch=rise}
 ```
 
-## 명시 범위형
+- 한글·한자·가나: 바로 앞 grapheme. 분해형 한글 자모도 하나의 grapheme을 유지합니다.
+- 라틴: 바로 앞 단어. Markdown `_` 및 문장 끝 `.`을 단어에 흡수하지 않습니다.
+- 그 외 문자 또는 여러 단어: `((범위)){속성}`. 중첩 범위는 지원하지 않습니다.
+- 범위는 일반 텍스트 영역 안에서 작성합니다. 코드·수식·Markdown 구조 경계를 가로지르는 범위는 처리하지 않습니다. 강조는 `**((안녕하세요)){↗}**`처럼 범위 바깥에 둡니다.
+- 일반 중괄호를 보존하려면 `마\{T2}` 또는 인라인 코드를 사용합니다.
+- 코드 블록(들여쓰기·인용문 안의 fence 포함), 인라인 코드, 수식, HTML 태그, 링크 주소, 참조 정의, 이미지 설명은 변환하지 않습니다. 링크의 표시 문구는 지원합니다.
+- 문자열 값의 쉼표·닫는 중괄호는 따옴표로 감쌉니다: `마{note="a,b}c",T2}`. 따옴표 안 역슬래시 이스케이프는 경계 판정에 사용하며 값에서는 원문으로 보존합니다.
 
-```text
-((대상 범위)){표기}
-```
+## 성조
 
-예:
+성조 번호는 전 세계에 공통인 음높이가 아닙니다. `toneContour`를 우선하고, 없으면 `toneSystem`, 다음으로 `lang`, 모두 없으면 중국어 4성 체계를 사용합니다.
 
-```md
-((정말입니까)){pitch=rise}
-((원 투)){reduced=true}
-```
-
-## Scope 규칙
-
-| 문자권 | 암시 범위 |
-| --- | --- |
-| 한글 | 바로 앞 grapheme |
-| 한자 | 바로 앞 grapheme |
-| 히라가나/가타카나 | 바로 앞 grapheme |
-| 라틴 문자 | 바로 앞 연속 단어 |
-| 명시 범위 `((...))` | 괄호 안 전체 |
-
-## 기호형 annotation
-
-| 기호 | 속성 | 값 |
+| 체계 | 번호 | 기본 contour |
 | --- | --- | --- |
-| `↗` | pitch | `rise` |
-| `↘` | pitch | `fall` |
-| `↑` | pitch | `high` |
-| `↓` | pitch | `low` |
-| `·` | pitch | `mid` |
-| `˘˘` | duration | `extra-short` |
-| `˘` | duration | `short` |
-| `-` | duration | `normal` |
-| `—` | duration | `long` |
-| `——` | duration | `extra-long` |
-| `?` | stress | `weak` |
-| `!` | stress | `strong` |
-| `!!` | stress | `extra-strong` |
-| `°` | volume | `soft` |
-| `•` | volume | `normal` |
-| `●` | volume | `loud` |
-| `T0` | tone | `neutral` |
-| `T1`~`T9` | tone | `1`~`9` |
+| `mandarin` (`zh`, `zh-cn`, `zh-tw`, `cmn`) | 1~4 | 55, 35, 214, 51 |
+| `yue` (`cantonese`, `yue-hk`, `zh-hk`) | 1~6 | 55, 35, 33, 21, 13, 22 |
+| `generic-8` | 1~8 | 55, 35, 214, 51, 33, 22, 53, 24 |
+| 그 외 언어·사용자 체계 | 직접 지정 | `toneContour` 필수 |
 
-기호는 조합할 수 있습니다.
+광둥어 기본값은 [Jyutping 공식 안내의 성조 표](https://jyutping.org/en/jyutping/)에 맞춘 교육용 대표값입니다. 방언·발화 맥락·자료에 따라 다른 contour가 가능하며 직접 덮어쓸 수 있습니다. 중국어 3성 `214`도 독립 발음의 교육용 표현으로, 문맥 변조를 자동 적용하지 않습니다.
+
+`generic-8`은 **8개의 서로 다른 시각 패턴을 확인하는 시연용 목록**이며 실제 언어의 8성 체계가 아닙니다. 실제 8성 언어는 해당 언어·방언에서 확인한 contour와 음절 길이 등을 각각 지정하세요.
 
 ```md
-녕{↗—!}
-세{!!●}
+마{toneSystem=generic-8,tone=8}
+마{lang=my-language,tone=8,toneContour=24}
+마{tone=custom,toneContour=151}
+마{toneContour=214,soundShape=false}
 ```
 
-순수 기호형 annotation은 기본적으로 글자 아래 선을 표시하지 않습니다. `↗`, `↘`, `↑`, `↓`, `—`, `!`, `°`, `●`는 글자 자체의 위치, 폭, 높이, 크기만 바꿉니다. 기호형에서도 보조선을 강제로 표시하려면 `soundShape=true`를 함께 씁니다.
+- `toneContour`: ASCII 숫자 1~5로 구성된 2~16개 지점. 1=최저, 5=최고. 지점 사이 시간은 균등합니다. `tone` 없이도 동작합니다.
+- `T0`, `tone=0`, `tone=neutral`: 중립 위치 `33`을 쓰는 표시상의 약속입니다. 경성의 실제 음높이가 항상 33이라는 뜻은 아닙니다.
+- `T1`~`T9`와 `tone=1`~`9`: 번호는 파싱하지만 해당 체계 밖 번호에는 contour가 필요합니다. 예를 들어 체계 없는 `T8`은 오류입니다.
+- 이름형: `high`, `mid`, `low`, `rise`, `fall`, `dip` 및 대응 별칭을 지원합니다. 미등록 이름은 contour를 지정해야 합니다.
+- 미등록 `toneSystem=thai` 등을 임의로 중국어 성조로 대체하지 않습니다.
 
-예외적으로 `T1`~`T9`는 성조 기호이므로 성조 보조선을 기본 표시합니다.
+한 음절에서도 contour 전체를 읽을 수 있도록 글자 윤곽에 연속적인 세로 기울임을 적용합니다. 상승·하강·평탄은 글자를 한 번만 그리고, 굴곡은 contour가 꺾이는 지점에서만 연결된 조각으로 나눕니다. 기존 16조각 계단식 이동은 사용하지 않습니다. 음높이 한 단계의 이동은 0.06em이며 인접한 최고·최저음의 최대 차이는 0.24em입니다. 여러 글자 범위에서는 범위 전체에 걸쳐 contour가 진행합니다. 글자 원형을 보존하는 근사 변형이며 전용 가변 폰트는 아닙니다. 보조선은 같은 지점들을 직선으로 연결하여 곡선 보간의 과도한 상승·하강을 방지합니다.
 
-## Key-Value annotation
+## 장단·강세·성량
 
-```md
-녕{pitch=rise,duration=long,stress=strong}
-((원 투)){reduced=true,stress=weak,duration=short}
-```
-
-지원 속성:
-
-| key | 값 |
-| --- | --- |
-| `pitch` | `low`, `mid`, `high`, `rise`, `fall` |
-| `duration` | `extra-short`, `short`, `slight-short`, `normal`, `slight-long`, `long`, `extra-long` |
-| `stress` | `weak`, `normal`, `strong`, `extra-strong` |
-| `volume` | `soft`, `normal`, `loud` |
-| `tone` | `0`, `1`~`9`, `neutral`, `T0`~`T9`, 또는 이름형 tone |
-| `toneSystem` / `tone_system` | `mandarin`, `yue`, `cantonese`, `thai`, `custom` 등 |
-| `toneContour` / `tone_contour` | 1~5 숫자열 contour. 예: `55`, `35`, `214`, `51`, `22` |
-| `soundShape` / `sound_shape` | boolean. 글자 아래 음형태 보조선 표시 여부 |
-| `guide`, `showGuide`, `shapeGuide`, `contourGuide` | `soundShape`의 별칭 |
-| `hideGuide`, `hideSoundShape`, `hideShape`, `noGuide` | `soundShape=false`의 별칭 |
-| `guideColor` / `guide_color` | boolean. 아래 보조선의 길이별 유색 표시 여부 |
-| `showColor`, `durationColor`, `lengthColor`, `colorGuide`, `visualColor` | `guideColor`의 호환 별칭 |
-| `ipa` | 문자열 |
-| `phoneme` | 문자열 |
-| `lang` | 문자열 |
-| `note` | 문자열 |
-| `nasal` | boolean |
-| `aspiration` | boolean |
-| `fortis` | boolean |
-| `lenis` | boolean |
-| `palatalization` | boolean |
-| `retroflexion` | boolean |
-| `liaison` | boolean |
-| `reduced` | boolean |
-| `assimilation` | boolean |
-| `deletion` | boolean |
-| `mora` | 문자열 |
-| `syllable_role` | 문자열 |
-
-알 수 없는 key는 `attributes.extras`에 보존합니다.
-
-## 장단 7단계
-
-장단은 badge나 보조 기호가 아니라 글자 glyph 자체의 좌우 폭 변화로 표현합니다. 렌더러는 layout 폭과 `scaleX`를 함께 조정해 글자가 실제로 늘어나거나 압축되어 보이게 합니다.
-
-기본값은 원문 텍스트의 색상과 굵기를 유지합니다. 글자에는 장단 색상을 적용하지 않습니다. key-value 장단은 폭 변화와 단색 아래 보조선을 함께 사용할 수 있고, 기호형 장단 `—`, `——`, `˘`는 기본적으로 선 없이 폭 변화만 보입니다. 길이별 유색 선이 필요할 때만 `guideColor=true`를 지정합니다. 이때 단음 계열은 차가운 색상, 장음 계열은 보라/주황/붉은 색상으로 구분해 폭 변화가 작아도 길이 차이를 식별할 수 있게 합니다.
-
-| 값 | 한국어 설명 | 렌더링 의도 |
+| 속성 | 값 | 효과 |
 | --- | --- | --- |
-| `extra-long` | 아주 길게 | 가장 크게 좌우 확장 |
-| `long` | 보통 길게 | 명확한 장음 |
-| `slight-long` | 조금 길게 | 약한 장음 |
-| `normal` | 보통 | 기본 폭 |
-| `slight-short` | 조금 짧게 | 약한 단음 |
-| `short` | 보통 짧게 | 명확한 단음 |
-| `extra-short` | 아주 짧게 | 가장 강한 압축 |
+| `pitch` | low, mid, high, rise, fall | 글자 높낮이. 성조 contour가 있으면 contour 우선 |
+| `duration` | extra-short, short, slight-short, normal, slight-long, long, extra-long | 장평 0.72, 0.84, 0.93, 1, 1.08, 1.20, 1.42배 |
+| `stress` | weak, normal, strong, extra-strong | 높이 0.94, 1, 1.14, 1.26배. Markdown 굵기 유지 |
+| `volume` | soft, normal, loud | 크기·투명도·존재감 조정 |
 
-예:
+장평은 화면 변형뿐 아니라 실제 배치 폭에 반영됩니다. 한글 1em을 기준으로 하며 라틴은 글자에 따라 0.28~0.9em, 공백은 0.32em으로 자간을 근사합니다. 글자 윤곽 자체를 정해진 폭에 강제로 늘리지 않습니다. 라틴 비례 폰트의 원래 자폭이나 복잡한 문자권의 연결형 조판을 완전히 재현하지는 않습니다.
 
-```md
-아{duration=extra-long}
-아{duration=long}
-아{duration=slight-long}
-아{duration=normal}
-아{duration=slight-short}
-아{duration=short}
-아{duration=extra-short}
-```
-
-아래 보조선 색상 구분을 명시적으로 켠 예:
-
-```md
-아{duration=extra-long,guideColor=true}
-아{duration=extra-short,guideColor=true}
-```
-
-기호형 shorthand:
-
-- `——`: `extra-long`
-- `—`: `long`
-- `-`: `normal`
-- `˘`: `short`
-- `˘˘`: `extra-short`
-
-`slight-long`, `slight-short`는 초기 MVP에서 key-value형으로 지정합니다.
-
-## 범용 성조
-
-성조는 중국어 4성에 고정하지 않습니다. 기본 `T1`~`T9` shorthand와 key-value형 `tone=1`~`tone=9`를 지원하며, `toneSystem`과 `toneContour`를 함께 사용해 언어별 체계를 지정할 수 있습니다.
-
-예:
-
-```md
-妈=마{T1} 麻=마{T2} 马=마{T3} 骂=마{T4}
-詩=시{lang=yue,tone=1} 史=시{lang=yue,tone=2} 試=시{lang=yue,tone=3}
-時=시{lang=yue,tone=4} 市=시{lang=yue,tone=5} 事=시{lang=yue,tone=6}
-아{tone=7} 아{tone=8}
-마{tone=custom,toneContour=53}
-마{tone=custom,toneContour=214}
-```
-
-렌더러의 기본 contour 해석:
-
-- Mandarin 스타일 기본값: `1=55`, `2=35`, `3=214`, `4=51`
-- Cantonese/Yue 스타일 기본값: `1=55`, `2=25`, `3=33`, `4=21`, `5=23`, `6=22`
-- 범용 7/8성: `tone=7`, `tone=8`도 시각 패턴으로 표시
-- `toneContour`가 있으면 언어별 기본값보다 우선합니다.
-
-보조선이 꺼져 있어도 성조는 글자 자체의 세로 위치, 회전, 기울임, 높이 비율로 드러납니다. 상승 성조는 오른쪽 위로 열린 기울기, 하강 성조는 오른쪽 아래로 열린 기울기, 굴곡 성조는 낮아졌다 올라오는 압축된 형태로 표현합니다. 이 효과는 색상이나 font-weight를 바꾸지 않습니다.
-
-성조 보조선은 원형 contour를 보존하기 위해 부드러운 곡선으로 렌더링합니다. 평탄 성조는 수평선, 상승 성조는 상승 곡선, 하강 성조는 하강 곡선, 굴곡 성조는 내려갔다 올라오는 곡선으로 표시합니다.
-
-## 음형태 보조선
-
-글자 아래의 음형태 보조선은 성조에서 기본값이 표시입니다. 즉 `마{T2}`는 글자 자체의 위치 변화와 아래 성조 곡선을 함께 보여줍니다. 순수 기호형 `마{↗}`는 기본적으로 보조선을 표시하지 않습니다.
-
-보조선을 숨기려면 다음 중 하나를 사용합니다.
-
-```md
-마{T2,soundShape=false}
-마{pitch=rise,hideGuide=true}
-아{duration=extra-long,noGuide=true}
-마{tone=custom,toneContour=214,hideSoundShape=true}
-```
-
-보조선이 표시되는 경우 렌더러는 tone contour, pitch, duration 순서로 표시할 보조선을 선택합니다.
-
-기본 정책:
-
-- 성조 `T1`~`T9`, `tone=...`: `soundShape` 생략 시 글자 아래 단색 음형태 보조선 표시
-- 순수 기호형 `↗`, `↘`, `—`, `!`, `°`, `●`: `soundShape` 생략 시 보조선 숨김
-- key-value형 pitch/duration: `soundShape` 생략 시 글자 아래 단색 보조선 표시
-- `soundShape=false`: 보조선 숨김
-- `soundShape=true`: 기호형에서도 보조선 표시
-- `hideGuide=true`: `soundShape=false`와 동일한 별칭
-- `guideColor=true`: 보조선이 표시될 때만 길이별 유색 선 적용
-
-## 표시 옵션 기본값
-
-마크한글 렌더러의 기본값은 원문 Markdown과의 충돌을 줄이는 쪽입니다.
-
-- 글자 색상 변경 없음: 어떤 발음 속성도 대상 글자 색을 바꾸지 않음
-- 성조 보조선 기본 표시: `soundShape=false` 또는 `hideGuide=true`일 때만 아래 선 숨김
-- 순수 기호형 보조선 기본 숨김: `soundShape=true`일 때만 아래 선 표시
-- 보조선 기본 색상은 단색: `guideColor=true`일 때만 아래 선에 길이별 유색 표시 적용
-- font-weight 변경 없음: `stress`는 굵기 대신 글자 크기 변화만 사용
-- Markdown 굵게, 기울임, 링크, 코드, 수식 문법은 원문 Markdown 렌더러가 처리
-
-## Rust AST
-
-```rust
-pub struct MarkHangeulNode {
-    pub id: String,
-    pub text: String,
-    pub raw_annotation: String,
-    pub scope: Scope,
-    pub attributes: MarkHangeulAttributes,
-    pub start: usize,
-    pub end: usize,
-    pub annotation_start: usize,
-    pub annotation_end: usize,
-    pub errors: Vec<ParseError>,
-}
-
-pub enum Scope {
-    Grapheme,
-    Word,
-    Range,
-}
-```
-
-문서 전체는 `Text` 노드와 `Markhangeul` 노드의 배열로 표현합니다. 일반 Markdown 문법 문자는 변경하지 않고 `Text` 노드에 남깁니다.
-
-## Renderer 원칙
-
-- `pitch`: 글자의 세로 위치 변화. `↗`/`pitch=rise`는 위, `↘`/`pitch=fall`은 아래로 배치
-- `duration`: 글자의 가로 폭 변화
-- `stress`: 글자 좌우 폭은 유지하고 높이만 변화. Markdown의 `**굵게**`와 충돌하지 않도록 font-weight는 변경하지 않음
-- `volume`: 높이와 좌우 폭이 함께 변화하며 opacity, shadow, 획 존재감도 함께 조정
-- `tone`: `tone`, `toneSystem`, `toneContour` 기반 수직 움직임과 미세한 회전/기울임. 보조 곡선은 기본 표시되며 `soundShape=false`일 때만 숨김
-- `guideColor`: `true`일 때만 아래 보조선에 장단 단계별 유색 구분 적용
-
-마크한글 렌더러는 발음 표식 badge를 붙이는 UI가 아니라 대상 텍스트 자체의 조형을 변화시키는 방식을 기본으로 합니다.
-
-## Markdown/LaTeX Preview
-
-웹 Playground preview는 MarkHangeul annotation을 먼저 inline HTML로 치환한 뒤 Markdown 렌더러에 통과시킵니다.
-
-지원 범위:
-
-- CommonMark 기본 문법
-- GitHub Flavored Markdown 계열 기능: table, task list, strikethrough 등
-- heading attribute, footnote, definition list, superscript, subscript
-- inline math `$...$`
-- display math `$$...$$`
-
-예:
-
-```md
-## Markdown + MarkHangeul
-
-**안녕{↗—!}하세요**
-
-| 표현 | 수식 |
+| 기호 | 속성 |
 | --- | --- |
-| 헬로{!↗} | $E = mc^2$ |
+| `↗ ↘ ↑ ↓ ·` | rise, fall, high, low, mid |
+| `˘˘ ˘ - — ——` | extra-short, short, normal, long, extra-long |
+| `? ! !!` | weak, strong, extra-strong |
+| `° • ●` | soft, normal, loud |
+| `T0`~`T9` | 성조 번호 |
 
-$$
-\int_0^1 x^2 dx = \frac{1}{3}
-$$
-```
+기호와 key-value는 쉼표로 함께 사용합니다: `마{T2,duration=long}`.
 
-주의: 명시 범위 `((...)){...}` 안의 텍스트는 하나의 MarkHangeul 대상이므로, 범위 내부 Markdown 문법은 일반 Markdown으로 다시 파싱하지 않고 대상 텍스트로 취급합니다.
+## 보조선과 메타데이터
+
+- 성조 및 key-value pitch/duration: 보조선 기본 표시.
+- 순수 기호 pitch/duration: 기본 숨김.
+- `soundShape=false` / `hideGuide=true`: 숨김. `soundShape=true`: 표시.
+- `guideColor=true`: 장단별 보조선 색상을 선택적으로 사용. 글자색과 Markdown 굵기는 유지합니다.
+- `tone_system`, `tone_contour`, `sound_shape`, `guide_color` 등 snake_case 별칭도 지원합니다.
+- `guide`, `showGuide`, `shapeGuide`, `contourGuide`는 `soundShape` 별칭입니다. `hideSoundShape`, `hideShape`, `noGuide`는 숨김 별칭입니다.
+- `showColor`, `durationColor`, `lengthColor`, `colorGuide`, `visualColor`는 `guideColor` 별칭입니다.
+- boolean은 true/false, 1/0, yes/no, y/n, on/off만 받습니다. 오타는 오류입니다.
+
+`ipa`, `phoneme`, `lang`, `note`, `mora`, `syllable_role`은 문자열로 보존합니다. `nasal`, `aspiration`, `fortis`, `lenis`, `palatalization`, `retroflexion`, `liaison`, `reduced`, `assimilation`, `deletion`은 boolean 메타데이터입니다. **이 속성들은 현재 자동 음소 변경이나 별도 글자 변형을 수행하지 않습니다.** Inspector와 JSON에서 확인할 수 있습니다. 미등록 key는 `extras`에 보존합니다.
+
+## 내보내기와 보안
+
+| 형식 | 용도 | 발음 정보 |
+| --- | --- | --- |
+| 원문 `.mh.md` | 재편집·버전 관리 | 모두 보존 |
+| 일반 `.md` | 일반 Markdown 소비 도구 | 정상 annotation 제거. 오류 annotation은 원문 보존 |
+| `.html` | 브라우저에서 열기·정적 배포 | SVG/CSS 포함. 추가 WASM 없이 발음 표시 |
+| `.json` | 외부 도구 연동 | AST와 속성, UTF-8 바이트 위치 |
+
+미리보기는 사용자 HTML을 이스케이프하며 http/https/mailto 및 상대 URL만 허용합니다. 렌더러가 생성한 HTML만 삽입합니다. Markdown 표·목록·강조·취소선·각주·수식 등을 지원하지만 이것이 모든 Markdown 구현과 동일하다는 의미는 아닙니다.
+
+Playground의 수식 조판은 외부 MathJax가 필요합니다. 수식 내부 URL·사용자 class/id/style은 ui/safe로 차단합니다. 독립 HTML은 외부 스크립트를 포함하지 않으며 수식을 TeX 원문으로 표시합니다. AST의 위치는 JS의 UTF-16 인덱스가 아닌 UTF-8 바이트 오프셋입니다. Rust 내부 `Markhangeul` variant는 메모리 낭비를 줄이기 위해 Box를 사용하며 JSON 구조는 유지됩니다.
