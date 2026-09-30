@@ -30,6 +30,9 @@
 | --- | --- | --- |
 | `mandarin` (`zh`, `zh-cn`, `zh-tw`, `cmn`) | 1~4 | 55, 35, 214, 51 |
 | `yue` (`cantonese`, `yue-hk`, `zh-hk`) | 1~6 | 55, 35, 33, 21, 13, 22 |
+| `vietnamese-hanoi` (`vi-hanoi`) | A1, A2, B1, B2, C1, C2 | 33, 21, 35, 21, 31, 35 + 발성 구분 |
+| `vietnamese-hanoi-8` (`vi-hanoi-8`) | 위 6범주 + D1, D2 | 위 목록 + 45, 21 + 입성 구분 |
+| `thai` (`th`, `th-th`, `thai-central`) | 1~5 또는 mid, low, falling, high, rising | 33, 21, 241, 45, 315 |
 | `generic-8` | 1~8 | 55, 35, 214, 51, 33, 22, 53, 24 |
 | 그 외 언어·사용자 체계 | 직접 지정 | `toneContour` 필수 |
 
@@ -48,9 +51,32 @@
 - `T0`, `tone=0`, `tone=neutral`: 중립 위치 `33`을 쓰는 표시상의 약속입니다. 경성의 실제 음높이가 항상 33이라는 뜻은 아닙니다.
 - `T1`~`T9`와 `tone=1`~`9`: 번호는 파싱하지만 해당 체계 밖 번호에는 contour가 필요합니다. 예를 들어 체계 없는 `T8`은 오류입니다.
 - 이름형: `high`, `mid`, `low`, `rise`, `fall`, `dip` 및 대응 별칭을 지원합니다. 미등록 이름은 contour를 지정해야 합니다.
-- 미등록 `toneSystem=thai` 등을 임의로 중국어 성조로 대체하지 않습니다.
+- 태국어의 `tone=high`는 체계별 고조(45)를 뜻하며 일반 이름형 high(55)보다 우선합니다. 미등록 번호·범주는 오류로 표시합니다.
 
 한 음절에서도 contour 전체를 읽을 수 있도록 글자 윤곽에 연속적인 세로 기울임을 적용합니다. 상승·하강·평탄은 글자를 한 번만 그리고, 굴곡은 contour가 꺾이는 지점에서만 연결된 조각으로 나눕니다. 기존 16조각 계단식 이동은 사용하지 않습니다. 음높이 한 단계의 이동은 0.06em이며 인접한 최고·최저음의 최대 차이는 0.24em입니다. 여러 글자 범위에서는 범위 전체에 걸쳐 contour가 진행합니다. 글자 원형을 보존하는 근사 변형이며 전용 가변 폰트는 아닙니다. 보조선은 같은 지점들을 직선으로 연결하여 곡선 보간의 과도한 상승·하강을 방지합니다.
+
+## 언어·지역 및 발성·입성 확장
+
+지역별 지원 범위와 원자료는 [언어별 프로필](LANGUAGE-PROFILES.md)을 참고하세요. 웹 상단의 **언어·지역** 선택 후 **비교 예제로 바꾸기**를 누르면 해당 체계의 한글 비교표를 작성할 수 있습니다.
+
+```md
+마{toneSystem=vietnamese-hanoi,tone=ngang}
+마{toneSystem=vi-hanoi,tone=ngã}
+맛{toneSystem=vi-hanoi-8,tone=D1}
+마{lang=th-TH,tone=high}
+맛{lang=yue,tone=6,checked=true}
+마{lang=my-region,tone=8,toneContour=24,phonation=breathy}
+```
+
+하노이의 8범주는 6범주와 폐쇄음 종결 2범주를 합친 분석입니다. 모든 음절에 8개의 성조가 대립하는 뜻은 아닙니다. 숫자 순서의 혼동을 피하기 위해 베트남어 preset은 `A1~D2` 또는 `ngang`, `huyen`, `sac`, `nang`, `hoi`, `nga`, `sac-checked`, `nang-checked`로 지정합니다. 성조 이름의 베트남어 부호도 지원합니다. `lang=vi`만으로는 하노이 방언을 자동 선택하지 않습니다.
+
+- `phonation`: modal, breathy, creaky, glottalized. 명시하면 preset보다 우선합니다.
+- `checked`: boolean. 폐쇄음 종결을 나타냅니다. 자동 장단 축소는 하지 않습니다.
+- 긴 점선은 breathy, 짧은 점선은 creaky, 중앙 두 획은 glottalized, 끝 세로획은 checked를 나타내는 **앱의 보조표시 규칙**입니다. IPA 표준 기호가 아닙니다.
+- 보조선을 숨기면 같은 contour의 발성·입성 차이는 글자 모양만으로 식별할 수 없습니다.
+- 하노이 A·B·C 범주와 D 범주의 checked 값이 충돌하거나 Jyutping 2·4·5성에 checked=true를 쓰면 오류입니다.
+- contour를 덮어써도 해당 preset의 발성·입성 정보는 유지합니다. 발성은 별도로 덮어쓸 수 있습니다.
+- Inspector는 입력된 속성과 실제 해석 결과를 나눠 보여줍니다. JSON은 원문 속성을 보존하며 생략된 preset 기본값을 자동 삽입하지 않습니다.
 
 ## 장단·강세·성량
 

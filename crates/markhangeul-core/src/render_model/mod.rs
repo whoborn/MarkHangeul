@@ -1,3 +1,5 @@
+pub mod tone_systems;
+
 use crate::ast::{Duration, MarkHangeulAttributes, Pitch, Stress, Tone, Volume};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -66,59 +68,77 @@ fn tone_class(value: &Tone) -> &'static str {
     }
 }
 
-/// Explicit contours are authoritative. Numeric categories have no universal pitch.
-pub fn resolve_tone(a: &MarkHangeulAttributes) -> Result<Option<Vec<u8>>, String> {
-    if let Some(contour) = &a.tone_contour {
+/// A resolved view: source attributes stay untouched for lossless editing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedPronunciation {
+    pub contour: Option<Vec<u8>>,
+    pub phonation: crate::ast::Phonation,
+    pub checked: bool,
+    pub system: Option<&'static str>,
+    pub category: Option<&'static str>,
+}
+
+pub fn resolve_pronunciation(a: &MarkHangeulAttributes) -> Result<ResolvedPronunciation, String> {
+    use tone_systems::{tone_preset, tone_system};
+    let system_id = a
+        .tone_system
+        .as_deref()
+        .or(a.lang.as_deref())
+        .unwrap_or("mandarin");
+    let system = tone_system(system_id);
+    let value = a.tone.as_ref().map(|t| t.as_str());
+    let preset = system.and_then(|s| value.and_then(|v| tone_preset(s, v)));
+    if let (Some(s), Some(p), Some(checked)) = (system, preset, a.checked) {
+        if s.id == "yue" && checked && !matches!(p.key, "1" | "3" | "6") {
+            return Err("Jyutping 입성은 1·3·6 범주를 사용합니다. 이 번호에는 checked=true를 지정할 수 없습니다.".into());
+        }
+        if s.id.starts_with("vietnamese-hanoi") && checked != p.checked {
+            return Err(
+                "하노이 입성 D1·D2와 개음절/공명음 종결 A·B·C 범주의 checked 값이 충돌합니다."
+                    .into(),
+            );
+        }
+    }
+    let contour = if let Some(contour) = &a.tone_contour {
         if !(2..=16).contains(&contour.len())
             || !contour.bytes().all(|b| (b'1'..=b'5').contains(&b))
         {
             return Err("toneContour는 1~5 숫자 2~16개여야 합니다.".into());
         }
-        return Ok(Some(contour.bytes().map(|b| b - b'0').collect()));
-    }
-    let Some(tone) = &a.tone else {
-        return Ok(None);
+        Some(contour.as_str())
+    } else if let Some(preset) = preset {
+        Some(preset.contour)
+    } else if let Some(value) = value {
+        let named = match value {
+            "neutral" => Some("33"),
+            "high" | "high-level" | "level-high" => Some("55"),
+            "mid" | "mid-level" | "level-mid" => Some("33"),
+            "low" | "low-level" | "level-low" => Some("11"),
+            "rise" | "rising" | "high-rising" => Some("25"),
+            "fall" | "falling" | "high-falling" => Some("51"),
+            "dip" | "dipping" | "fall-rise" | "falling-rising" => Some("314"),
+            _ => None,
+        };
+        Some(named.ok_or_else(|| format!("성조 '{value}'를 '{system_id}'에서 해석할 수 없습니다. 지원되는 범주 이름 또는 toneContour를 지정하세요. 베트남어는 지역 체계와 A1~D2 코드를 사용합니다."))?)
+    } else {
+        None
     };
-    let value = tone.as_str();
-    let named = match value {
-        "neutral" => Some("33"),
-        "high" | "high-level" | "level-high" => Some("55"),
-        "mid" | "mid-level" | "level-mid" => Some("33"),
-        "low" | "low-level" | "level-low" => Some("11"),
-        "rise" | "rising" | "high-rising" => Some("25"),
-        "fall" | "falling" | "high-falling" => Some("51"),
-        "dip" | "dipping" | "fall-rise" | "falling-rising" => Some("314"),
-        _ => None,
-    };
-    if let Some(contour) = named {
-        return Ok(Some(contour.bytes().map(|b| b - b'0').collect()));
-    }
-    let system = a
-        .tone_system
-        .as_deref()
-        .or(a.lang.as_deref())
-        .unwrap_or("mandarin")
-        .to_ascii_lowercase();
-    let contours: &[&str] = match system.as_str() {
-        "mandarin" | "zh" | "zh-cn" | "zh-tw" | "cmn" => &["55", "35", "214", "51"],
-        "yue" | "cantonese" | "yue-hk" | "zh-hk" => &["55", "35", "33", "21", "13", "22"],
-        // Demonstration inventory, deliberately not attributed to a real language.
-        "generic-8" => &["55", "35", "214", "51", "33", "22", "53", "24"],
-        _ => {
-            return Err(format!(
-                "성조 체계 '{system}'의 기본값이 없습니다. toneContour를 명시하세요."
-            ))
-        }
-    };
-    let contour = value
-        .parse::<usize>()
-        .ok()
-        .and_then(|n| n.checked_sub(1))
-        .and_then(|i| contours.get(i))
-        .ok_or_else(|| {
-            format!("성조 '{value}'는 '{system}'에 없습니다. toneContour를 명시하세요.")
-        })?;
-    Ok(Some(contour.bytes().map(|b| b - b'0').collect()))
+    Ok(ResolvedPronunciation {
+        contour: contour.map(|c| c.bytes().map(|b| b - b'0').collect()),
+        phonation: a
+            .phonation
+            .or(preset.map(|p| p.phonation))
+            .unwrap_or_default(),
+        checked: a.checked.or(preset.map(|p| p.checked)).unwrap_or(false),
+        system: system
+            .filter(|_| a.tone.is_some() || a.tone_system.is_some() || a.lang.is_some())
+            .map(|s| s.id),
+        category: preset.map(|p| p.label),
+    })
+}
+
+pub fn resolve_tone(a: &MarkHangeulAttributes) -> Result<Option<Vec<u8>>, String> {
+    resolve_pronunciation(a).map(|r| r.contour)
 }
 
 pub fn contour_level(profile: &[u8], progress: f32) -> f32 {

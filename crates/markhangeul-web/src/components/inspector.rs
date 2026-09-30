@@ -62,6 +62,7 @@ fn render_details(node: &MarkHangeulNode) -> Html {
     let json = serde_json::to_string_pretty(&node.attributes)
         .unwrap_or_else(|error| format!("{{\"error\":\"{error}\"}}"));
 
+    let resolved = markhangeul_core::render_model::resolve_pronunciation(&node.attributes).ok();
     html! {
         <>
             <dl class="detail-list">
@@ -78,6 +79,15 @@ fn render_details(node: &MarkHangeulNode) -> Html {
                     <dd>{node.raw_annotation.clone()}</dd>
                 </div>
             </dl>
+            if let Some(r) = resolved {
+                <div class="pronunciation-summary">
+                    <p>{format!("해석: {} · {}", r.system.unwrap_or("사용자 체계"), r.category.unwrap_or("직접 지정"))}</p>
+                    <p>{format!("성조 음높이: {} · 발성: {} · 입성: {}", r.contour.map(|c| c.iter().map(u8::to_string).collect::<String>()).unwrap_or_else(|| "없음".into()), r.phonation.as_str(), if r.checked { "예" } else { "아니오" })}</p>
+                    if r.phonation != markhangeul_core::Phonation::Modal || r.checked {
+                        <p>{"발성·입성 차이는 보조표시로 읽습니다. 보조선을 숨기면 일부 범주가 같은 글자 모양으로 보일 수 있습니다."}</p>
+                    }
+                </div>
+            }
             <pre class="code-block">{json}</pre>
         </>
     }

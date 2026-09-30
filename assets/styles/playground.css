@@ -531,3 +531,8 @@ textarea.export-code { width: calc(100% - 24px); min-height: 200px; }
 @media (max-width: 720px) {
   .markdown-body th { font-size: 0.8em; white-space: nowrap; padding-inline: 0.35em; }
 }
+
+.tone-system-picker { padding: 16px; margin-bottom: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+.tone-picker-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.tone-picker-controls select, .tone-picker-controls button { min-height: 36px; max-width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font: inherit; background: var(--surface); }
+.tone-system-picker p, .pronunciation-summary p { margin: 8px 0; color: var(--muted); font-size: .85rem; overflow-wrap: anywhere; }

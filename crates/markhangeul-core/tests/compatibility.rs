@@ -43,7 +43,7 @@ fn rejects_invalid_profiles_and_booleans_without_losing_source() {
         "마{toneContour=2x4}",
         "마{toneContour=6}",
         "마{tone=8}",
-        "마{tone=2,toneSystem=thai}",
+        "마{tone=2,toneSystem=unknown-region}",
         "마{soundShape=maybe}",
         "마{tone=custom}",
     ] {

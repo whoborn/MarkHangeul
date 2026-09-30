@@ -74,7 +74,7 @@ pub fn app() -> Html {
                         <p>{"높낮이와 장평으로 읽는 발음"}</p>
                     </div>
                 </div>
-                <SampleSelector samples={samples} on_select={on_sample_select} />
+                <SampleSelector samples={samples} on_select={on_sample_select.clone()} />
             </header>
 
             <details class="usage-guide">
@@ -84,6 +84,7 @@ pub fn app() -> Html {
                 <p>{"장단: 아{duration=long} · 보조선 숨김: 마{T3,soundShape=false}. 문법 기호를 그대로 쓰려면 코드(`...`) 또는 역슬래시로 여는 중괄호를 이스케이프하세요."}</p>
                 <p>{"한글 발음은 직접 입력합니다. 자동 번역·전사·변조는 하지 않으며, 한글로 구분하기 어려운 소리는 ipa와 note로 함께 기록하세요."}</p>
             </details>
+            <crate::components::ToneSystemPicker on_select={on_sample_select} />
             <section class="workspace-grid">
                 <EditorPanel source={(*source).clone()} on_change={on_source_change} />
                 <PreviewPanel
@@ -168,24 +169,17 @@ fn sample_documents() -> Vec<SampleDocument> {
 
 fn tone_comparison_sample() -> String {
     let mut source = String::from("# 성조 비교\n\n왼쪽→오른쪽으로 높낮이를 읽습니다. 1은 낮음, 5는 높음입니다. 같은 한글의 변형을 비교해 보세요.\n\n");
-    for (label, system, contours) in [
-        ("중국어 4성", "mandarin", vec!["55", "35", "214", "51"]),
-        (
-            "광둥어 6성",
-            "yue",
-            vec!["55", "35", "33", "21", "13", "22"],
-        ),
-        (
-            "8개 대비 시연 · 실제 언어의 성조 번호 아님",
-            "generic-8",
-            vec!["55", "35", "214", "51", "33", "22", "53", "24"],
-        ),
-    ] {
+    for id in ["mandarin", "yue", "generic-8"] {
+        let system = markhangeul_core::render_model::tone_systems::tone_system(id)
+            .expect("registered comparison system");
+        let label = system.label;
         source.push_str(&format!(
             "## {label}\n\n| 번호 | 음높이 | 글자 + 보조선 | 글자만 |\n| --- | --- | --- | --- |\n"
         ));
-        for (index, contour) in contours.iter().enumerate() {
-            let n = index + 1;
+        for tone in system.tones {
+            let n = tone.key;
+            let contour = tone.contour;
+            let system = system.id;
             source.push_str(&format!("| {n} | {contour} | 마{{toneSystem={system},tone={n}}} | 마{{toneSystem={system},tone={n},soundShape=false}} |\n"));
         }
         source.push('\n');

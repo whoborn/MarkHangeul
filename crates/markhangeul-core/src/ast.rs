@@ -80,6 +80,10 @@ pub struct MarkHangeulAttributes {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tone_contour: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub phonation: Option<Phonation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checked: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub sound_shape: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub guide_color: Option<bool>,
@@ -181,5 +185,26 @@ impl Tone {
 
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Phonation {
+    #[default]
+    Modal,
+    Breathy,
+    Creaky,
+    Glottalized,
+}
+
+impl Phonation {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Modal => "modal",
+            Self::Breathy => "breathy",
+            Self::Creaky => "creaky",
+            Self::Glottalized => "glottalized",
+        }
     }
 }

@@ -235,3 +235,12 @@ button {
 .mh-mark:focus-visible { outline: 2px solid var(--accent); }
 .markdown-body { line-height: 1.85; overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) { .mh-mark { transition: none; } }
+
+/* Phonation/coda distinctions live in the guide; glyph strokes stay intact. */
+.mh-mark[data-phonation="breathy"] .contour-line { stroke-dasharray: 12 8; }
+.mh-mark[data-phonation="creaky"] .contour-line { stroke-dasharray: 2 7; }
+.mh-mark[data-phonation="glottalized"] .contour-line { stroke-dasharray: 44 12 44; }
+.sound-shape-path .phonation-stop, .sound-shape-path .checked-stop {
+  stroke-dasharray: none;
+  stroke-width: 3;
+}

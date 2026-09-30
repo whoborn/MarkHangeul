@@ -6,7 +6,7 @@ pub mod serializer;
 
 pub use ast::{
     AttributeValue, Duration, MarkHangeulAttributes, MarkHangeulDocument, MarkHangeulNode,
-    MarkHangeulToken, Pitch, Scope, Stress, Tone, Volume,
+    MarkHangeulToken, Phonation, Pitch, Scope, Stress, Tone, Volume,
 };
 pub use errors::{ParseError, Severity};
 pub use parser::parse_markhangeul;

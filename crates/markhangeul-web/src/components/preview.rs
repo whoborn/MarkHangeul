@@ -240,10 +240,27 @@ fn push_mark_html(output: &mut String, node: &MarkHangeulNode, selected_id: Opti
     } else {
         "true"
     });
+    if let Ok(resolved) = markhangeul_core::render_model::resolve_pronunciation(&node.attributes) {
+        output.push_str("\" data-phonation=\"");
+        output.push_str(resolved.phonation.as_str());
+        output.push_str("\" data-checked=\"");
+        output.push_str(if resolved.checked { "true" } else { "false" });
+    }
     output.push_str("\" role=\"button\" tabindex=\"0\" aria-label=\"");
+    let description = markhangeul_core::render_model::resolve_pronunciation(&node.attributes)
+        .map(|r| {
+            format!(
+                "{}; {}; phonation={}; checked={}",
+                node.raw_annotation,
+                r.category.unwrap_or("사용자 표기"),
+                r.phonation.as_str(),
+                r.checked
+            )
+        })
+        .unwrap_or_else(|_| node.raw_annotation.clone());
     output.push_str(&escape_attr(&format!(
         "{} annotation {}",
-        node.text, node.raw_annotation
+        node.text, description
     )));
     output.push_str("\">");
 
@@ -371,21 +388,32 @@ fn sound_shape_path_html(node: &MarkHangeulNode) -> Option<String> {
         return None;
     }
 
+    let resolved = markhangeul_core::render_model::resolve_pronunciation(&node.attributes).ok();
     let (path, guide_type) = if let Some(profile) = tone_profile(node) {
         (sound_shape_path_from_profile(&profile), "tone")
     } else if let Some(profile) = pitch_profile(node) {
         (sound_shape_path_from_profile(&profile), "pitch")
+    } else if let Some(duration) = node.attributes.duration {
+        (duration_sound_shape_path(duration)?, "duration")
+    } else if node.attributes.phonation.is_some() || node.attributes.checked == Some(true) {
+        ("M 4 13 L 96 13".to_string(), "phonation")
     } else {
-        (
-            duration_sound_shape_path(node.attributes.duration?)?,
-            "duration",
-        )
+        return None;
     };
-
+    let mut detail = String::new();
+    if let Some(r) = resolved {
+        if r.phonation == markhangeul_core::Phonation::Glottalized {
+            detail.push_str(r#"<path class="phonation-stop" d="M 47 5 L 47 21 M 53 5 L 53 21"/>"#);
+        }
+        if r.checked {
+            detail.push_str(r#"<path class="checked-stop" d="M 96 3 L 96 22"/>"#);
+        }
+    }
     Some(format!(
-        r#"<svg class="sound-shape-path sound-shape-{}" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true"><path d="{}"></path></svg>"#,
+        r#"<svg class="sound-shape-path sound-shape-{}" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true"><path class="contour-line" pathLength="100" d="{}"></path>{}</svg>"#,
         guide_type,
-        escape_attr(&path)
+        escape_attr(&path),
+        detail
     ))
 }
 
@@ -503,6 +531,8 @@ fn show_sound_shape(node: &MarkHangeulNode) -> bool {
 
     if node.attributes.tone.is_some()
         || node.attributes.tone_contour.is_some()
+        || node.attributes.phonation.is_some()
+        || node.attributes.checked == Some(true)
         || node.attributes.guide_color == Some(true)
     {
         return true;
@@ -750,5 +780,29 @@ mod typography_tests {
         assert!(!html.contains("clipPath"));
         assert!(!html.contains("textLength"));
         assert!(glyph_advance("l") < glyph_advance("H"));
+    }
+}
+
+#[cfg(test)]
+mod language_render_tests {
+    use super::*;
+    use markhangeul_core::parse_markhangeul;
+    #[test]
+    fn hanoi_phonation_and_checked_have_guides_without_distorting_glyphs() {
+        let render = |s: &str| render_preview_html(&parse_markhangeul(s), None);
+        let a = render("마{toneSystem=vi-hanoi,tone=b1}");
+        let b = render("마{toneSystem=vi-hanoi,tone=c2}");
+        assert!(!a.contains("class=\"phonation-stop\""));
+        assert!(b.contains("class=\"phonation-stop\""));
+        assert!(b.contains("data-phonation=\"glottalized\""));
+        let checked = render("맛{toneSystem=vi-hanoi-8,tone=d1}");
+        assert!(checked.contains("class=\"checked-stop\""));
+        assert!(!checked.contains("mh-duration-short"));
+        let hidden = render("맛{toneSystem=vi-hanoi-8,tone=d1,soundShape=false}");
+        assert!(!hidden.contains("class=\"checked-stop\""));
+        assert!(hidden.contains("class=\"mh-glyph\""));
+        let only = render("마{phonation=breathy}");
+        assert!(only.contains("sound-shape-phonation"));
+        assert!(only.contains("data-phonation=\"breathy\""));
     }
 }

@@ -1,4 +1,6 @@
-use crate::ast::{AttributeValue, Duration, MarkHangeulAttributes, Pitch, Stress, Tone, Volume};
+use crate::ast::{
+    AttributeValue, Duration, MarkHangeulAttributes, Phonation, Pitch, Stress, Tone, Volume,
+};
 use crate::errors::ParseError;
 
 pub fn parse_key_value_annotation(
@@ -35,7 +37,8 @@ pub fn parse_key_value_annotation(
     let normalized_value = value.to_ascii_lowercase();
     if matches!(
         key.as_str(),
-        "sound_shape"
+        "checked"
+            | "sound_shape"
             | "hide_sound_shape"
             | "guide_color"
             | "nasal"
@@ -102,6 +105,22 @@ pub fn parse_key_value_annotation(
             parse_tone(&normalized_value),
             |value| attributes.tone = Some(value),
             "tone",
+            value,
+            errors,
+            base_index + separator_index + 1,
+            raw_value.len(),
+        ),
+        "checked" => attributes.checked = Some(parse_bool(value)),
+        "phonation" => assign_or_error(
+            match normalized_value.as_str() {
+                "modal" => Some(Phonation::Modal),
+                "breathy" => Some(Phonation::Breathy),
+                "creaky" => Some(Phonation::Creaky),
+                "glottalized" => Some(Phonation::Glottalized),
+                _ => None,
+            },
+            |v| attributes.phonation = Some(v),
+            "phonation",
             value,
             errors,
             base_index + separator_index + 1,
@@ -247,7 +266,7 @@ fn parse_tone_number(value: &str) -> Option<u8> {
 fn is_named_tone(value: &str) -> bool {
     value
         .chars()
-        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ':'))
+        .all(|ch| ch.is_alphanumeric() || matches!(ch, '-' | '_' | ':'))
 }
 
 fn parse_bool(value: &str) -> bool {
