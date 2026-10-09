@@ -2,7 +2,7 @@
 
 [한국어](INTEGRATION.md) · **English**
 
-Intended deployment base: `https://whoborn.github.io/MarkHangeul/`. It becomes available after public repository creation and Pages deployment. The SDK shares the editor's Rust parser and renderer. No conversion server or API key is required.
+Public deployment base: `https://whoborn.github.io/MarkHangeul/`. The SDK shares the editor's Rust parser and renderer. No conversion server or API key is required.
 
 ## Embed a Web Component
 

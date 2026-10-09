@@ -2,7 +2,7 @@
 
 **한국어** · [English](INTEGRATION.en.md)
 
-배포 예정 기준 주소: `https://whoborn.github.io/MarkHangeul/`. 저장소 공개와 Pages 배포가 완료된 뒤 사용할 수 있습니다. SDK는 편집기와 같은 Rust 파서·렌더러를 공유합니다. 별도 변환 서버나 API 키는 필요하지 않습니다.
+공개 배포 기준 주소: `https://whoborn.github.io/MarkHangeul/`. SDK는 편집기와 같은 Rust 파서·렌더러를 공유합니다. 별도 변환 서버나 API 키는 필요하지 않습니다.
 
 ## 가장 간단한 연결
 

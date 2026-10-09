@@ -14,8 +14,6 @@
 
 [소개 사이트](https://whoborn.github.io/MarkHangeul/) · [체험 편집기](https://whoborn.github.io/MarkHangeul/preview.html) · [연동 체험](https://whoborn.github.io/MarkHangeul/integration.html)
 
-> 위 주소는 Whoborn 계정 공개 배포의 목표 주소입니다. 저장소 공개 및 Pages 배포가 완료되어야 접속할 수 있습니다.
->
 > 현재 제공물은 **JavaScript·WebAssembly·CSS 웹 렌더러**입니다. 설치형 TTF/OTF/WOFF 폰트 파일은 포함하지 않습니다. 기존 시스템 글꼴로 글자를 그리고 높낮이·장평을 변형합니다. 한글은 학습용 근사이며 모든 언어의 자동 전사기나 IPA 대체 표준이 아닙니다.
 
 ## 30초 사용법

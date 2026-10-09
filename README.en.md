@@ -14,7 +14,7 @@ We invite everyone to explore the source code, write their own examples, and con
 
 [English introduction](https://whoborn.github.io/MarkHangeul/index.en.html) · [Try the editor](https://whoborn.github.io/MarkHangeul/preview.html) · [Integration demo](https://whoborn.github.io/MarkHangeul/integration.en.html)
 
-> These are the intended Whoborn deployment URLs. They become available after the repository is made public and GitHub Pages deployment is complete. Korean is the default site language; choose **English** in the navigation to switch. The editor interface is currently in Korean.
+> Korean is the default site language; choose **English** in the navigation to switch. The editor interface is currently in Korean.
 >
 > The distribution is a **JavaScript, WebAssembly and CSS web renderer**, not an installable TTF, OTF or WOFF font. It uses system fonts and transforms letter shapes to express pitch and duration. Hangul transcriptions are learning approximations, not automatic transcription of all languages or a replacement for IPA.
 
@@ -100,7 +100,7 @@ The old React prototype, superseded planning documents and development audit rep
 
 The [publishing guide (Korean)](docs/PUBLISHING.md) explains account ownership, authentication and Pages setup. On a `main` push or manual workflow run, GitHub Actions builds the site and SDK together and deploys them to Pages. The distribution ZIP contains runtime files, documentation and licenses, not development caches.
 
-The intended repository owner is `whoborn`. Previous `baesic` commits can remain in the Git history. Creating the new repository requires authentication with the appropriate account; transferring the existing repository to another personal account requires the recipient to accept it. These preparations do not mean the repository has already been published.
+The public repository is owned by `whoborn`. Earlier `baesic` commits remain in the Git history. Repository ownership and commit authorship are independent.
 
 The Pages SDK URL follows the latest deployment. To pin a version, build a specific commit and host its files yourself.
 
