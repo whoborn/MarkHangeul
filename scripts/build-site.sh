@@ -11,7 +11,7 @@ cp -R site/. dist/
 cp LICENSE dist/sdk/LICENSE
 cp LICENSE dist/LICENSE
 mkdir -p dist/docs
-cp docs/SYNTAX.md docs/LANGUAGE-PROFILES.md docs/INTEGRATION.md dist/docs/
+cp docs/SYNTAX.md docs/LANGUAGE-PROFILES.md docs/INTEGRATION.md docs/INTEGRATION.en.md dist/docs/
 touch dist/.nojekyll
 python3 - <<'PY'
 from pathlib import Path

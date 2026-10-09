@@ -1,4 +1,6 @@
-# MarkHangeul · 한글로 그리는 세계의 소리
+# MarkHangeul 1.0 · 한글로 그리는 세계의 소리
+
+**한국어** · [English](README.en.md)
 
 **2026 한글날 · 주식회사 후본(Whoborn Inc.)**
 
