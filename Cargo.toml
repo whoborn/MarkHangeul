@@ -1,7 +1,9 @@
 [workspace]
 members = [
   "crates/markhangeul-core",
-  "crates/markhangeul-web"
+  "crates/markhangeul-web",
+  "crates/markhangeul-render",
+  "crates/markhangeul-sdk"
 ]
 resolver = "2"
 

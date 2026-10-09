@@ -1,10 +1,10 @@
 [build]
-target = "index.html"
+target = "preview.html"
 dist = "dist"
 public_url = "/"
 
 [watch]
-watch = ["crates", "assets", "index.html"]
+watch = ["crates", "assets", "preview.html"]
 
 [serve]
 addresses = ["0.0.0.0"]

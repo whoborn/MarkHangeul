@@ -1,4 +1,4 @@
-name: Deploy MarkHangeul WASM Site
+name: Deploy MarkHangeul Site and SDK
 
 on:
   push:
@@ -33,6 +33,9 @@ jobs:
       - name: Install Trunk
         run: cargo install --locked trunk --version 0.21.14
 
+      - name: Install WASM bindings
+        run: cargo install --locked wasm-bindgen-cli --version 0.2.121
+
       - name: Run Workspace Tests
         run: cargo test --workspace --locked
 
@@ -40,10 +43,15 @@ jobs:
         id: pages
         uses: actions/configure-pages@v5
 
-      - name: Build WASM App
+      - name: Build Site and SDK
         env:
           PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
-        run: env -u NO_COLOR trunk build --release --locked --public-url "${PAGES_BASE_PATH}/"
+        run: ./scripts/build-site.sh "${PAGES_BASE_PATH}/"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: markhangeul-site-and-sdk
+          path: dist/markhangeul-site.zip
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v5

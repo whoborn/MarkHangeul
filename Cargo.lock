@@ -611,13 +611,30 @@ dependencies = [
 ]
 
 [[package]]
-name = "markhangeul-web"
+name = "markhangeul-render"
 version = "0.1.0"
 dependencies = [
  "markhangeul-core",
  "pulldown-cmark",
- "serde_json",
  "unicode-segmentation",
+]
+
+[[package]]
+name = "markhangeul-sdk"
+version = "0.1.0"
+dependencies = [
+ "markhangeul-core",
+ "markhangeul-render",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "markhangeul-web"
+version = "0.1.0"
+dependencies = [
+ "markhangeul-core",
+ "markhangeul-render",
+ "serde_json",
  "wasm-bindgen",
  "web-sys",
  "yew",

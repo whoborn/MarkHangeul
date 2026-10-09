@@ -1,0 +1,9 @@
+[package]
+name = "markhangeul-render"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+[dependencies]
+markhangeul-core = { path = "../markhangeul-core" }
+pulldown-cmark.workspace = true
+unicode-segmentation.workspace = true

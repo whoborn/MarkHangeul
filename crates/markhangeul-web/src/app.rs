@@ -68,6 +68,7 @@ pub fn app() -> Html {
         <div class="app-shell">
             <header class="top-bar">
                 <div class="brand-block">
+                    <a href="./" aria-label="MarkHangeul 소개로 돌아가기">{"← 소개"}</a>
                     <div class="brand-mark">{"ㅎ"}</div>
                     <div>
                         <h1>{"MarkHangeul"}</h1>

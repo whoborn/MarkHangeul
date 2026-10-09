@@ -1,0 +1,12 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MarkHangeul · 외부 서비스 연동</title><link rel="icon" href="data:,"><link rel="stylesheet" href="site.css"><script type="module" src="integration.js"></script></head><body><header><a class="brand" href="./">ㅎ MarkHangeul</a><nav><a href="preview.html">체험 편집기 ↗</a></nav></header><main class="docs"><section><p class="eyebrow">DEVELOPER QUICK START</p><h1>내 서비스에 연결하기.</h1><p>같은 Markdown 원문을 입력받는 독립 미리보기입니다. 아래 예제는 SDK만 사용하며 체험 편집기 앱을 로드하지 않습니다.</p><label for="source">Markdown 입력</label><textarea id="source">## 나의 첫 마크한글
+
+마{T1} 마{T2} 마{T3} 마{T4}
+
+길게: 아{duration=long}</textarea><mark-hangeul id="output"></mark-hangeul><p id="status" role="status">SDK 준비 중…</p></section><section><h2>1. Web Component로 삽입</h2><pre><code>&lt;script type="module"
+  src="https://whoborn.github.io/MarkHangeul/sdk/markhangeul.js"&gt;
+&lt;/script&gt;
+&lt;mark-hangeul source="마{T2}"&gt;&lt;/mark-hangeul&gt;</code></pre><p>동적 입력은 <code>element.source = editorValue</code>로 전달하세요. Shadow DOM을 사용하여 호스트 페이지와 스타일을 분리합니다.</p></section><section><h2>2. 기존 편집기의 preview 함수에 연결</h2><pre><code>import { init, renderMarkdown, parse } from
+  'https://whoborn.github.io/MarkHangeul/sdk/markhangeul.js';
+await init();
+preview.innerHTML = renderMarkdown(editor.getValue());
+console.log(parse(editor.getValue()).errors);</code></pre><p>함수 방식에서는 <code>sdk/markhangeul.css</code>를 별도로 연결하세요. 입력은 HTML이 아닌 Markdown 원문입니다. 기존 Markdown 변환기의 출력에 재적용하지 마세요. 코드·링크·표를 보호하는 파서가 원문을 한 번에 처리합니다.</p><p>Obsidian·VS Code 등의 편집기는 각 프로그램의 플러그인에서 이 API를 호출해야 합니다. 해당 편집기용 설치 패키지는 아직 제공하지 않습니다. GitHub README에서는 스크립트가 실행되지 않으므로 정적 예제와 체험 링크를 사용합니다.</p></section><section><h2>3. 자체 서버에 올리기</h2><p><a href="markhangeul-site.zip">정적 사이트·SDK ZIP</a>을 내려받아 <code>sdk/</code> 폴더를 그대로 배포하세요. JS와 WASM 파일은 서로 같은 버전이어야 합니다. HTTP(S) 서버에서 WASM MIME을 <code>application/wasm</code>으로 설정하세요.</p><p>정확한 버전 고정이 필요하면 검증한 커밋에서 빌드해 자체 호스팅하세요. Pages의 SDK 주소는 배포할 때 갱신됩니다. npm·CDN 패키지가 등록되어 있다고 가정하지 마세요.</p><p><a href="docs/INTEGRATION.md">전체 API 안내 (Markdown)</a> · <a href="docs/SYNTAX.md">표기 문법</a> · <a href="https://github.com/whoborn/MarkHangeul">소스코드</a></p></section></main><footer><a href="https://whoborn.net">Whoborn Inc.</a><span>MIT · 2026 한글날</span></footer></body></html>

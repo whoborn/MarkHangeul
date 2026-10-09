@@ -20,4 +20,5 @@ jobs:
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo check -p markhangeul-web --target wasm32-unknown-unknown --locked
       - run: cargo install --locked trunk --version 0.21.14
-      - run: env -u NO_COLOR trunk build --release --locked --public-url /MarkHangeul/
+      - run: cargo install --locked wasm-bindgen-cli --version 0.2.121
+      - run: ./scripts/build-site.sh /MarkHangeul/

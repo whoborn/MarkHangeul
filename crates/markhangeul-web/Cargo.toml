@@ -8,9 +8,8 @@ authors.workspace = true
 
 [dependencies]
 markhangeul-core = { path = "../markhangeul-core" }
-pulldown-cmark.workspace = true
+markhangeul-render = { path = "../markhangeul-render" }
 serde_json.workspace = true
 wasm-bindgen.workspace = true
 web-sys = { workspace = true, features = ["Element", "HtmlTextAreaElement", "HtmlInputElement", "HtmlSelectElement"] }
 yew.workspace = true
-unicode-segmentation.workspace = true
