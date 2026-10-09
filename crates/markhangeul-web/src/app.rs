@@ -84,6 +84,7 @@ pub fn app() -> Html {
                 <p>{"장단: 아{duration=long} · 보조선 숨김: 마{T3,soundShape=false}. 문법 기호를 그대로 쓰려면 코드(`...`) 또는 역슬래시로 여는 중괄호를 이스케이프하세요."}</p>
                 <p>{"한글 발음은 직접 입력합니다. 자동 번역·전사·변조는 하지 않으며, 한글로 구분하기 어려운 소리는 ipa와 note로 함께 기록하세요."}</p>
             </details>
+            <crate::components::WorldLanguages on_select={on_sample_select.clone()} />
             <crate::components::ToneSystemPicker on_select={on_sample_select} />
             <section class="workspace-grid">
                 <EditorPanel source={(*source).clone()} on_change={on_source_change} />
