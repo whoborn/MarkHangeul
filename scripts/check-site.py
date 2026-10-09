@@ -8,7 +8,7 @@ root = Path('dist')
 base = sys.argv[1] if len(sys.argv) > 1 else '/MarkHangeul/'
 for required in ['index.html', 'preview.html', 'integration.html', 'sdk/markhangeul.js',
                  'sdk/markhangeul_sdk_bg.wasm', 'sdk/markhangeul.css', 'LICENSE',
-                 'markhangeul-site.zip']:
+                 'markhangeul-site.zip', 'share-ko-v1.png', 'share-en-v1.png']:
     assert (root / required).is_file(), f'Missing distribution file: {required}'
 
 class Links(HTMLParser):
